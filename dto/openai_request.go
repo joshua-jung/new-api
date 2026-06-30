@@ -874,6 +874,7 @@ type OpenAIResponsesRequest struct {
 	User             json.RawMessage `json:"user,omitempty"`
 	MaxToolCalls     *uint           `json:"max_tool_calls,omitempty"`
 	Prompt           json.RawMessage `json:"prompt,omitempty"`
+	ExtraBody        json.RawMessage `json:"extra_body,omitempty"`
 	// qwen
 	EnableThinking json.RawMessage `json:"enable_thinking,omitempty"`
 	// perplexity

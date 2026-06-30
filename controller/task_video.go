@@ -83,6 +83,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{
 		"task_id": taskId,
 		"action":  task.Action,
+		"model":   task.Properties.UpstreamModelName,
 	}, proxy)
 	if err != nil {
 		return fmt.Errorf("fetchTask failed for task %s: %w", taskId, err)

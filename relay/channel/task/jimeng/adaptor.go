@@ -70,6 +70,10 @@ type responseTask struct {
 const (
 	// 即梦限制单个文件最大4.7MB https://www.volcengine.com/docs/85621/1747301
 	MaxFileSize int64 = 4*1024*1024 + 700*1024 // 4.7MB (4MB + 724KB)
+
+	// legacyVideoReqKey 是早期文生视频模型的 req_key，仅用于兼容缺少模型信息的旧任务
+	// https://www.volcengine.com/docs/85621/1544774
+	legacyVideoReqKey = "jimeng_vgfm_t2v_l20"
 )
 
 // ============================
@@ -169,6 +173,9 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, errors.Wrap(err, "convert request payload failed")
 	}
+	// 记录最终解析出的 req_key（v3.0 会按图片数量转换为 t2v/i2v/首尾帧等不同值），
+	// InitTask 会将其持久化到 Properties.UpstreamModelName，供后续查询任务状态时复用。
+	info.UpstreamModelName = body.ReqKey
 	data, err := common.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -222,8 +229,14 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if isNewAPIRelay(key) {
 		uri = fmt.Sprintf("%s/jimeng/?Action=CVSync2AsyncGetResult&Version=2022-08-31", a.baseURL)
 	}
+	// CVSync2AsyncGetResult 要求 req_key 与提交任务时一致，从任务记录中解析出提交时使用的模型，
+	// 缺失时（旧任务）回退到早期文生视频模型，保持向后兼容。
+	reqKey, _ := body["model"].(string)
+	if reqKey == "" {
+		reqKey = legacyVideoReqKey
+	}
 	payload := map[string]string{
-		"req_key": "jimeng_vgfm_t2v_l20", // This is fixed value from doc: https://www.volcengine.com/docs/85621/1544774
+		"req_key": reqKey,
 		"task_id": taskID,
 	}
 	payloadBytes, err := common.Marshal(payload)
@@ -261,7 +274,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
-	return []string{"jimeng_vgfm_t2v_l20"}
+	return []string{legacyVideoReqKey}
 }
 
 func (a *TaskAdaptor) GetChannelName() string {
@@ -384,6 +397,8 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 		Prompt: req.Prompt,
 	}
 
+	r.AspectRatio = "16:9" // 默认16:9
+
 	switch req.Duration {
 	case 10:
 		r.Frames = 241 // 24*10+1 = 241
@@ -439,13 +454,35 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskResult.Status = model.TaskStatusFailure
 		taskResult.Progress = "100%"
 	}
+	// 即梦任务执行状态 https://www.volcengine.com/docs/85621/1544774
 	switch resTask.Data.Status {
 	case "in_queue":
+		// 任务已提交，排队中
 		taskResult.Status = model.TaskStatusQueued
 		taskResult.Progress = "10%"
+	case "generating":
+		// 任务处理中
+		taskResult.Status = model.TaskStatusInProgress
+		taskResult.Progress = "30%"
 	case "done":
-		taskResult.Status = model.TaskStatusSuccess
+		// 处理完成：最终成功或失败由外层 code & message 决定
+		if resTask.Code == 10000 {
+			taskResult.Status = model.TaskStatusSuccess
+		} else {
+			taskResult.Status = model.TaskStatusFailure
+			taskResult.Reason = resTask.Message
+		}
 		taskResult.Progress = "100%"
+	case "not_found":
+		// 任务未找到：无此任务或任务已过期（12 小时）
+		taskResult.Status = model.TaskStatusFailure
+		taskResult.Progress = "100%"
+		taskResult.Reason = lo.Ternary(resTask.Message != "", resTask.Message, "task not found or expired")
+	case "expired":
+		// 任务已过期，请尝试重新提交任务请求
+		taskResult.Status = model.TaskStatusFailure
+		taskResult.Progress = "100%"
+		taskResult.Reason = lo.Ternary(resTask.Message != "", resTask.Message, "task expired, please resubmit")
 	}
 	taskResult.Url = resTask.Data.VideoUrl
 	return &taskResult, nil

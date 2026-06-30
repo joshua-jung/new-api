@@ -79,10 +79,13 @@ var defaultModelRatio = map[string]float64{
 	"o3-pro-2025-06-10":                         10.0, // $20 / 1M tokens
 	"o3-deep-research":                          5.0,  // $10 / 1M tokens
 	"o3-deep-research-2025-06-26":               5.0,  // $10 / 1M tokens
+	"deep-research-preview-04-2026":             5.0,  // Gemini Deep Research, token usage from Interactions API
+	"deep-research-max-preview-04-2026":         10.0, // Gemini Deep Research Max
 	"o4-mini":                                   0.55, // $1.1 / 1M tokens
 	"o4-mini-2025-04-16":                        0.55, // $1.1 / 1M tokens
 	"o4-mini-deep-research":                     1.0,  // $2 / 1M tokens
 	"o4-mini-deep-research-2025-06-26":          1.0,  // $2 / 1M tokens
+	"qwen-deep-research":                        5.0,  // DashScope Qwen Deep Research
 	"gpt-4o-mini":                               0.075,
 	"gpt-4o-mini-2024-07-18":                    0.075,
 	"gpt-4-turbo":                               5, // $0.01 / 1K tokens

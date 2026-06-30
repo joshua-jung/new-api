@@ -145,6 +145,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		}
 	}
 
+	if info.RelayMode == constant.RelayModeResponses && isGeminiDeepResearchModel(info.UpstreamModelName) {
+		return fmt.Sprintf("%s/v1beta/interactions", strings.TrimRight(info.ChannelBaseUrl, "/")), nil
+	}
+
 	version := model_setting.GetGeminiVersionSetting(info.UpstreamModelName)
 
 	if strings.HasPrefix(info.UpstreamModelName, "imagen") {
@@ -239,6 +243,10 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
+	if isGeminiDeepResearchModel(info.UpstreamModelName) {
+		return convertResponsesToGeminiDeepResearch(request, info)
+	}
+
 	request, err := preprocessGeminiOpenAIResponsesRequest(request)
 	if err != nil {
 		return nil, err
@@ -258,6 +266,9 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
 	if info.RelayMode == constant.RelayModeResponses {
+		if isGeminiDeepResearchModel(info.UpstreamModelName) {
+			return GeminiDeepResearchResponsesStreamHandler(c, info, resp)
+		}
 		if info.IsStream {
 			return GeminiResponsesStreamHandler(c, info, resp)
 		}

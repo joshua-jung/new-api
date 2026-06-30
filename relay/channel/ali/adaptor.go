@@ -104,6 +104,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		case constant.RelayModeRerank:
 			fullRequestURL = fmt.Sprintf("%s/api/v1/services/rerank/text-rerank/text-rerank", info.ChannelBaseUrl)
 		case constant.RelayModeResponses:
+			if isQwenDeepResearchModel(info.UpstreamModelName) {
+				fullRequestURL = fmt.Sprintf("%s/api/v1/services/aigc/text-generation/generation", strings.TrimRight(info.ChannelBaseUrl, "/"))
+				break
+			}
 			fullRequestURL = fmt.Sprintf("%s/api/v2/apps/protocols/compatible-mode/v1/responses", info.ChannelBaseUrl)
 		case constant.RelayModeImagesGenerations:
 			if isSyncImageModel(info.OriginModelName) {
@@ -132,7 +136,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
 	req.Set("Authorization", "Bearer "+info.ApiKey)
-	if info.IsStream {
+	if info.IsStream || (info.RelayMode == constant.RelayModeResponses && isQwenDeepResearchModel(info.UpstreamModelName)) {
 		req.Set("X-DashScope-SSE", "enable")
 	}
 	if c.GetString("plugin") != "" {
@@ -231,6 +235,9 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
+	if isQwenDeepResearchModel(info.UpstreamModelName) {
+		return convertResponsesToQwenDeepResearch(request)
+	}
 	return request, nil
 }
 
@@ -250,6 +257,12 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		return adaptor.DoResponse(c, resp, info)
 	default:
 		switch info.RelayMode {
+		case constant.RelayModeResponses:
+			if isQwenDeepResearchModel(info.UpstreamModelName) {
+				return QwenDeepResearchResponsesStreamHandler(c, info, resp)
+			}
+			adaptor := openai.Adaptor{}
+			usage, err = adaptor.DoResponse(c, resp, info)
 		case constant.RelayModeImagesGenerations:
 			err, usage = aliImageHandler(a, c, resp, info)
 		case constant.RelayModeImagesEdits:

@@ -20,6 +20,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
 	"github.com/QuantumNous/new-api/relay/channel/jimeng"
 	"github.com/QuantumNous/new-api/relay/channel/jina"
+	klingimage "github.com/QuantumNous/new-api/relay/channel/kling"
 	"github.com/QuantumNous/new-api/relay/channel/minimax"
 	"github.com/QuantumNous/new-api/relay/channel/mistral"
 	"github.com/QuantumNous/new-api/relay/channel/mokaai"
@@ -111,6 +112,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &coze.Adaptor{}
 	case constant.APITypeJimeng:
 		return &jimeng.Adaptor{}
+	case constant.APITypeKling:
+		return &klingimage.Adaptor{}
 	case constant.APITypeMoonshot:
 		return &moonshot.Adaptor{} // Moonshot uses Claude API
 	case constant.APITypeSubmodel:

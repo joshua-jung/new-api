@@ -33,6 +33,10 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	// 4.0/4.6 及 3.x 系列图片模型使用异步「提交任务」接口，2.x 通用模型使用同步 CVProcess 接口。
+	if isAsyncImageModel(info.UpstreamModelName) {
+		return fmt.Sprintf("%s/?Action=CVSync2AsyncSubmitTask&Version=2022-08-31", info.ChannelBaseUrl), nil
+	}
 	return fmt.Sprintf("%s/?Action=CVProcess&Version=2022-08-31", info.ChannelBaseUrl), nil
 }
 
@@ -70,12 +74,24 @@ type imageRequestPayload struct {
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	reqKey := request.Model
+	// 记录最终使用的 req_key，DoRequest/DoResponse 据此判断走同步还是异步流程。
+	info.UpstreamModelName = reqKey
+
 	payload := imageRequestPayload{
-		ReqKey: request.Model,
+		ReqKey: reqKey,
 		Prompt: request.Prompt,
 	}
 	if request.ResponseFormat == "" || request.ResponseFormat == "url" {
 		payload.ReturnURL = true // Default to returning image URLs
+	}
+
+	// 异步图片模型（3.x/4.x）支持通过 OpenAI 的 size 字段（如 "2048x2048"）指定宽高。
+	if isAsyncImageModel(reqKey) {
+		if w, h, ok := parseImageSize(request.Size); ok {
+			payload.Width = w
+			payload.Height = h
+		}
 	}
 
 	if len(request.ExtraFields) > 0 {
@@ -104,6 +120,11 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
+	// 异步图片模型：提交任务后轮询查询结果，将异步接口包装成同步的 /v1/images/generations 响应。
+	if info.RelayMode == relayconstant.RelayModeImagesGenerations && isAsyncImageModel(info.UpstreamModelName) {
+		return a.doAsyncImageRequest(c, info, requestBody)
+	}
+
 	fullRequestURL, err := a.GetRequestURL(info)
 	if err != nil {
 		return nil, fmt.Errorf("get request url failed: %w", err)
@@ -125,7 +146,11 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
 	if info.RelayMode == relayconstant.RelayModeImagesGenerations {
-		usage, err = jimengImageHandler(c, resp, info)
+		if isAsyncImageModel(info.UpstreamModelName) {
+			usage, err = jimengAsyncImageHandler(c, resp, info)
+		} else {
+			usage, err = jimengImageHandler(c, resp, info)
+		}
 	} else if info.IsStream {
 		usage, err = openai.OaiStreamHandler(c, info, resp)
 	} else {
