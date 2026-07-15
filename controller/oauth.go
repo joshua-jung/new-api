@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
@@ -250,7 +251,7 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 	if oauthUser.Username != "" {
 		if exists, err := model.CheckUserExistOrDeleted(oauthUser.Username, ""); err == nil && !exists {
 			// 防止索引退化
-			if len(oauthUser.Username) <= model.UserNameMaxLength {
+			if utf8.RuneCountInString(oauthUser.Username) <= model.UserNameMaxLength {
 				user.Username = oauthUser.Username
 			}
 		}
