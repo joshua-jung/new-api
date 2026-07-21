@@ -494,7 +494,7 @@ func (channel *Channel) GetBaseURL() string {
 	}
 	url := *channel.BaseURL
 	if url == "" {
-		url = constant.ChannelBaseURLs[channel.Type]
+		url = constant.GetDefaultChannelBaseURL(channel.Type)
 	}
 	return url
 }
@@ -938,6 +938,9 @@ func SearchTags(keyword string, group string, model string, idSort bool) ([]*str
 }
 
 func (channel *Channel) ValidateSettings() error {
+	if channel.Type == constant.ChannelTypeTokenHub && strings.TrimSpace(channel.GetBaseURL()) == "" {
+		return fmt.Errorf("TokenHub channel requires a base URL")
+	}
 	channelParams := &dto.ChannelSettings{}
 	if channel.Setting != nil && *channel.Setting != "" {
 		err := common.Unmarshal([]byte(*channel.Setting), channelParams)

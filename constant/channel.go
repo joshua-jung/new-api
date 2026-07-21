@@ -60,6 +60,10 @@ const (
 
 )
 
+// Extension channel types use a separate high range to avoid colliding with
+// upstream's sequential channel type allocation.
+const ChannelTypeTokenHub = 10000
+
 var ChannelBaseURLs = []string{
 	"",                                    // 0
 	"https://api.openai.com",              // 1
@@ -178,6 +182,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeReplicate:      "Replicate",
 	ChannelTypeCodex:          "ChatGPT Subscription (Codex)",
 	ChannelTypeAdvancedCustom: "Advanced Custom",
+	ChannelTypeTokenHub:       "TokenHub",
 }
 
 func GetChannelTypeName(channelType int) string {
@@ -185,6 +190,13 @@ func GetChannelTypeName(channelType int) string {
 		return name
 	}
 	return "Unknown"
+}
+
+func GetDefaultChannelBaseURL(channelType int) string {
+	if channelType < 0 || channelType >= len(ChannelBaseURLs) {
+		return ""
+	}
+	return ChannelBaseURLs[channelType]
 }
 
 type ChannelSpecialBase struct {

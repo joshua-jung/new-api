@@ -693,11 +693,29 @@ type TaskSubmitReq struct {
 	Mode           string                 `json:"mode,omitempty"`
 	Image          string                 `json:"image,omitempty"`
 	Images         []string               `json:"images,omitempty"`
+	Content        []TaskContentItem      `json:"content,omitempty"`
+	GenerateAudio  *bool                  `json:"generate_audio,omitempty"`
+	Ratio          string                 `json:"ratio,omitempty"`
+	Watermark      *bool                  `json:"watermark,omitempty"`
 	Size           string                 `json:"size,omitempty"`
 	Duration       int                    `json:"duration,omitempty"`
+	DurationSet    bool                   `json:"-"`
 	Seconds        string                 `json:"seconds,omitempty"`
 	InputReference string                 `json:"input_reference,omitempty"`
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type TaskContentItem struct {
+	Type     string        `json:"type"`
+	Text     string        `json:"text,omitempty"`
+	ImageURL *TaskMediaURL `json:"image_url,omitempty"`
+	VideoURL *TaskMediaURL `json:"video_url,omitempty"`
+	AudioURL *TaskMediaURL `json:"audio_url,omitempty"`
+	Role     string        `json:"role,omitempty"`
+}
+
+type TaskMediaURL struct {
+	URL string `json:"url"`
 }
 
 func (t *TaskSubmitReq) GetPrompt() string {
@@ -705,7 +723,15 @@ func (t *TaskSubmitReq) GetPrompt() string {
 }
 
 func (t *TaskSubmitReq) HasImage() bool {
-	return len(t.Images) > 0
+	if len(t.Images) > 0 {
+		return true
+	}
+	for _, item := range t.Content {
+		if item.Type == "image_url" && item.ImageURL != nil && item.ImageURL.URL != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
@@ -723,6 +749,7 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 	}
 
 	if len(aux.Duration) > 0 {
+		t.DurationSet = string(aux.Duration) != "null"
 		var durationInt int
 		if err := common.Unmarshal(aux.Duration, &durationInt); err == nil {
 			t.Duration = durationInt

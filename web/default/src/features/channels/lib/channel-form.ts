@@ -212,7 +212,7 @@ export const channelFormSchema = z
     upstream_model_update_ignored_models: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    if ([3, 8, 36, 45].includes(data.type) && !data.base_url?.trim()) {
+    if ([3, 8, 36, 45, 10000].includes(data.type) && !data.base_url?.trim()) {
       addRequiredIssue(
         ctx,
         'base_url',

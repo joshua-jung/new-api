@@ -402,7 +402,9 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 	}
 	info := &relaycommon.RelayInfo{}
 	info.ChannelMeta = &relaycommon.ChannelMeta{
-		ChannelBaseUrl: cacheGetChannel.GetBaseURL(),
+		ChannelType:          cacheGetChannel.Type,
+		ChannelBaseUrl:       cacheGetChannel.GetBaseURL(),
+		ChannelOtherSettings: cacheGetChannel.GetOtherSettings(),
 	}
 	info.ApiKey = cacheGetChannel.Key
 	adaptor.Init(info)
@@ -432,10 +434,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	baseURL := constant.ChannelBaseURLs[ch.Type]
-	if ch.GetBaseURL() != "" {
-		baseURL = ch.GetBaseURL()
-	}
+	baseURL := ch.GetBaseURL()
 	proxy := ch.GetSetting().Proxy
 
 	task := taskM[taskId]

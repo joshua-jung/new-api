@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doubao Seedance 视频生成 API 文档</title>
+<style>
+  :root {
+    --primary: #1a73e8;
+    --primary-light: #e8f0fe;
+    --text: #202124;
+    --text-secondary: #5f6368;
+    --bg: #ffffff;
+    --border: #dadce0;
+    --code-bg: #f8f9fa;
+    --success: #34a853;
+    --warning: #fbbc04;
+    --danger: #ea4335;
+    --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    color: var(--text);
+    background: #f0f2f5;
+    line-height: 1.7;
+    padding: 0;
+  }
+
+  nav.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 24px 0;
+    z-index: 100;
+  }
+
+  nav.sidebar h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 20px;
+    margin-bottom: 12px;
+  }
+
+  nav.sidebar a {
+    display: block;
+    padding: 6px 20px;
+    font-size: 14px;
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.15s;
+    border-left: 3px solid transparent;
+  }
+
+  nav.sidebar a:hover,
+  nav.sidebar a.active {
+    background: var(--primary-light);
+    border-left-color: var(--primary);
+    color: var(--primary);
+  }
+
+  nav.sidebar a.sub {
+    padding-left: 36px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  main {
+    margin-left: 280px;
+    max-width: 960px;
+    padding: 40px 60px 80px;
+  }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  h1 + p {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+  }
+
+  h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary);
+  }
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 32px;
+    margin-bottom: 12px;
+  }
+
+  h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 24px;
+    margin-bottom: 8px;
+  }
+
+  p {
+    margin-bottom: 16px;
+    line-height: 1.7;
+  }
+
+  ul, ol {
+    margin-bottom: 16px;
+    padding-left: 24px;
+  }
+
+  li {
+    margin-bottom: 4px;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  pre {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--code-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  pre .lang-tag {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: #e8eaed;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+
+  thead {
+    background: var(--primary-light);
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 16px;
+    font-weight: 600;
+    color: var(--primary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tr:hover td {
+    background: #f8f9fa;
+  }
+
+  .callout {
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    border-left: 4px solid;
+    font-size: 14px;
+  }
+
+  .callout.note {
+    background: var(--primary-light);
+    border-color: var(--primary);
+  }
+
+  .callout.warning {
+    background: #fef7e0;
+    border-color: var(--warning);
+  }
+
+  .callout.tip {
+    background: #e6f4ea;
+    border-color: var(--success);
+  }
+
+  .callout p:last-child {
+    margin-bottom: 0;
+  }
+
+  .flow-diagram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 24px 0;
+    padding: 20px;
+    background: var(--code-bg);
+    border-radius: 8px;
+    font-size: 14px;
+    flex-wrap: wrap;
+  }
+
+  .flow-diagram .step {
+    background: var(--primary);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .flow-diagram .step.running { background: var(--primary); }
+  .flow-diagram .step.success { background: var(--success); }
+  .flow-diagram .step.failed { background: var(--danger); }
+  .flow-diagram .arrow { color: var(--text-secondary); font-size: 18px; }
+
+  @media (max-width: 768px) {
+    nav.sidebar {
+      display: none;
+    }
+    main {
+      margin-left: 0;
+      padding: 24px 16px;
+    }
+    table {
+      font-size: 13px;
+    }
+    th, td {
+      padding: 8px 10px;
+    }
+    pre {
+      font-size: 12px;
+      padding: 14px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h2>目录</h2>
+  <a href="#overview" class="active">概述</a>
+  <a href="#model-list" class="sub">模型列表</a>
+  <a href="#flow" class="sub">调用流程</a>
+  <a href="#create-task">一、提交视频生成任务</a>
+  <a href="#create-request" class="sub">1.1 请求地址</a>
+  <a href="#create-headers" class="sub">1.2 请求头</a>
+  <a href="#create-params" class="sub">1.3 请求参数</a>
+  <a href="#create-examples" class="sub">1.4 请求示例</a>
+  <a href="#create-response" class="sub">1.5 响应参数</a>
+  <a href="#create-response-example" class="sub">1.6 响应示例</a>
+  <a href="#query-task">二、查询任务状态</a>
+  <a href="#query-params" class="sub">2.2 路径参数</a>
+  <a href="#query-response" class="sub">2.4 响应参数</a>
+  <a href="#query-examples" class="sub">2.5 响应示例</a>
+  <a href="#asset-common">三、素材管理接口（通用约定）</a>
+  <a href="#asset-group">四、素材组管理（AssetGroup）</a>
+  <a href="#asset-group-create" class="sub">4.1 CreateAssetGroup</a>
+  <a href="#asset-group-list" class="sub">4.2 ListAssetGroups</a>
+  <a href="#asset-group-get" class="sub">4.3 GetAssetGroup</a>
+  <a href="#asset-group-update" class="sub">4.4 UpdateAssetGroup</a>
+  <a href="#asset-group-delete" class="sub">4.5 DeleteAssetGroup</a>
+  <a href="#asset">五、素材管理（Asset）</a>
+  <a href="#asset-create" class="sub">5.1 CreateAsset</a>
+  <a href="#asset-list" class="sub">5.2 ListAssets</a>
+  <a href="#asset-get" class="sub">5.3 GetAsset</a>
+  <a href="#asset-update" class="sub">5.4 UpdateAsset</a>
+  <a href="#asset-delete" class="sub">5.5 DeleteAsset</a>
+  <a href="#asset-ref">六、视频生成中的 asset:// 引用</a>
+  <a href="#errors">七、错误响应</a>
+  <a href="#code-examples">八、代码示例</a>
+  <a href="#notes">九、注意事项</a>
+</nav>
+
+<main>
+
+<h1>Doubao Seedance 视频生成 API 文档</h1>
+<p>火山方舟（Ark）Seedance 系列</p>
+
+<section id="overview">
+<h2>概述</h2>
+<p>网关支持火山方舟（Ark）Seedance 系列视频生成模型（<code>doubao-seedance-2-0-260128</code>、<code>doubao-seedance-2-0-fast-260128</code>、<code>doubao-seedance-2-0-mini-260615</code>），采用 <strong>创建任务 → 轮询结果</strong> 的异步调用模式。</p>
+</section>
+
+<section id="model-list">
+<h3>模型列表</h3>
+<table>
+  <thead>
+    <tr>
+      <th>模型名称</th>
+      <th>类型</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>doubao-seedance-2-0-260128</code></td>
+      <td>标准版</td>
+      <td>豆包 Seedance 2.0 标准视频生成模型</td>
+    </tr>
+    <tr>
+      <td><code>doubao-seedance-2-0-fast-260128</code></td>
+      <td>快速版</td>
+      <td>快速视频生成，推理速度更快</td>
+    </tr>
+    <tr>
+      <td><code>doubao-seedance-2-0-mini-260615</code></td>
+      <td>Mini 版</td>
+      <td>轻量化模型，适合简单任务</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<section id="flow">
+<h3>调用流程</h3>
+<p>视频生成采用异步任务模式，分两步完成：</p>
+<ol>
+  <li><strong>提交任务</strong>：调用 <code>POST /v1/videos/generations</code>，返回任务 ID（<code>output.task_id</code>）</li>
+  <li><strong>轮询结果</strong>：调用 <code>GET /v1/videos/generations/task/{taskId}</code> 查询状态</li>
+</ol>
+<p><strong>状态流转：</strong></p>
+<div class="flow-diagram">
+  <span class="step running">running</span>
+  <span class="arrow">→</span>
+  <span class="step success">succeeded</span>
+  <span class="arrow" style="margin:0 4px;">/</span>
+  <span class="step failed">failed</span>
+</div>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="create-task">
+<h2>一、提交视频生成任务</h2>
+
+<h3 id="create-request">1.1 请求地址</h3>
+<pre><span class="lang-tag">HTTP</span><code>POST /v1/videos/generations</code></pre>
+
+<h3 id="create-headers">1.2 请求头</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Header</th>
+      <th>必填</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Content-Type</code></td>
+      <td>是</td>
+      <td>固定为 <code>application/json</code></td>
+    </tr>
+    <tr>
+      <td><code>Authorization</code></td>
+      <td>是</td>
+      <td>格式：<code>Bearer &lt;your-api-key&gt;</code></td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout tip">Seedance 系列<strong>无需</strong>设置 <code>X-DashScope-Async</code> 请求头。</div>
+</section>
+
+<section id="create-params">
+<h3>1.3 请求参数</h3>
+
+<h4>顶层参数</h4>
+<table>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>类型</th>
+      <th>必填</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>model</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td>模型名称：<code>doubao-seedance-2-0-260128</code> / <code>doubao-seedance-2-0-fast-260128</code> / <code>doubao-seedance-2-0-mini-260615</code></td>
+    </tr>
+    <tr>
+      <td><code>content</code></td>
+      <td>array[object]</td>
+      <td>是</td>
+      <td>素材与提示词混合数组。最少 1 个元素，支持 text / image_url / video_url / audio_url 四种类型</td>
+    </tr>
+    <tr>
+      <td><code>generate_audio</code></td>
+      <td>bool</td>
+      <td>否</td>
+      <td>自动生成配音。仅画面无需音频时传 <code>false</code>。默认 <code>true</code></td>
+    </tr>
+    <tr>
+      <td><code>ratio</code></td>
+      <td>string</td>
+      <td>否</td>
+      <td>宽高比：<code>9:16</code> / <code>16:9</code> / <code>1:1</code>。默认 <code>16:9</code></td>
+    </tr>
+    <tr>
+      <td><code>duration</code></td>
+      <td>int</td>
+      <td>否</td>
+      <td>生成视频总时长（秒）</td>
+    </tr>
+    <tr>
+      <td><code>watermark</code></td>
+      <td>bool</td>
+      <td>否</td>
+      <td>是否添加平台水印。默认 <code>false</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>content 元素类型</h4>
+
+<h4>1. 文本提示词 (type = text)</h4>
+<table>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>类型</th>
+      <th>必填</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>type</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td><code>text</code></td>
+    </tr>
+    <tr>
+      <td><code>text</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td>分镜文案。用 <code>[Image N]</code> / <code>[Video N]</code> / <code>[Audio N]</code> 引用素材</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>2. 参考图片 (type = image_url)</h4>
+<table>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>类型</th>
+      <th>必填</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>type</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td><code>image_url</code></td>
+    </tr>
+    <tr>
+      <td><code>image_url.url</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td>图片 URL（HTTP/HTTPS 或 Base64）</td>
+    </tr>
+    <tr>
+      <td><code>role</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td><code>reference_image</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>3. 参考视频 (type = video_url)</h4>
+<table>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>类型</th>
+      <th>必填</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>type</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td><code>video_url</code></td>
+    </tr>
+    <tr>
+      <td><code>video_url.url</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td>公网可访问 MP4 视频链接</td>
+    </tr>
+    <tr>
+      <td><code>role</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td><code>reference_video</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>4. 参考音频 (type = audio_url)</h4>
+<table>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>类型</th>
+      <th>必填</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>type</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td><code>audio_url</code></td>
+    </tr>
+    <tr>
+      <td><code>audio_url.url</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td>公网可访问 MP3 音频链接</td>
+    </tr>
+    <tr>
+      <td><code>role</code></td>
+      <td>string</td>
+      <td>是</td>
+      <td><code>reference_audio</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout note">
+  <strong>约束说明：</strong>参考图片最多 9 张 · 参考视频最多 1 个 · 参考音频最多 1 个 · 纯文生视频仅需 1 个 <code>type: "text"</code> 元素
+</div>
+</section>
+
+<section id="create-examples">
+<h3>1.4 请求示例</h3>
+
+<h4>样例1：纯文生视频</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+  "model": "doubao-seedance-2-0-260128",
+  "content": [
+    {
+      "type": "text",
+      "text": "一只橘猫在午后阳光下的窗台上打盹，微风吹动窗帘，镜头缓慢推进，温暖治愈风格"
+    }
+  ],
+  "duration": 5,
+  "ratio": "16:9",
+  "generate_audio": false,
+  "watermark": false
+}</code></pre>
+
+<h4>样例2：单参考图片</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+  "model": "doubao-seedance-2-0-fast-260128",
+  "content": [
+    {
+      "type": "text",
+      "text": "[Image 1]古风少女站在桃花树下，镜头环绕人物旋转，花瓣随风飘落，柔光古风画质"
+    },
+    {
+      "type": "image_url",
+      "image_url": { "url": "https://example.com/girl-portrait.jpg" },
+      "role": "reference_image"
+    }
+  ],
+  "duration": 5,
+  "ratio": "9:16",
+  "watermark": false
+}</code></pre>
+
+<h4>样例3：多素材组合（完整参数）</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+  "model": "doubao-seedance-2-0-260128",
+  "content": [
+    {
+      "type": "text",
+      "text": "[Image 1]里的白色小猫趴在[Image 2]木质窗台，窗外是[Image 3]春日花海，镜头缓缓向前推进，配合音频1作为背景音乐"
+    },
+    {
+      "type": "image_url",
+      "image_url": { "url": "https://example.com/cat.jpg" },
+      "role": "reference_image"
+    },
+    {
+      "type": "image_url",
+      "image_url": { "url": "https://example.com/windowsill.jpg" },
+      "role": "reference_image"
+    },
+    {
+      "type": "image_url",
+      "image_url": { "url": "https://example.com/flower.jpg" },
+      "role": "reference_image"
+    },
+    {
+      "type": "video_url",
+      "video_url": { "url": "https://example.com/reference.mp4" },
+      "role": "reference_video"
+    },
+    {
+      "type": "audio_url",
+      "audio_url": { "url": "https://example.com/background.mp3" },
+      "role": "reference_audio"
+    }
+  ],
+  "duration": 7,
+  "ratio": "16:9",
+  "generate_audio": true,
+  "watermark": false
+}</code></pre>
+
+<h4>样例4：Base64 图片输入</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+  "model": "doubao-seedance-2-0-mini-260615",
+  "content": [
+    {
+      "type": "text",
+      "text": "[Image 1]海边落日，海面波光流动，氛围感电影色调"
+    },
+    {
+      "type": "image_url",
+      "image_url": { "url": "data:image/jpeg;base64,/9j/4AAQSkZJRg..." },
+      "role": "reference_image"
+    }
+  ],
+  "duration": 5,
+  "ratio": "16:9"
+}</code></pre>
+</section>
+
+<section id="create-response">
+<h3>1.5 响应参数</h3>
+<table>
+  <thead>
+    <tr>
+      <th>参数</th>
+      <th>类型</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>output</code></td>
+      <td>object</td>
+      <td>任务输出信息</td>
+    </tr>
+    <tr>
+      <td><code>output.task_id</code></td>
+      <td>string</td>
+      <td>任务 ID（有效期 24 小时，用于轮询）</td>
+    </tr>
+    <tr>
+      <td><code>output.task_status</code></td>
+      <td>string</td>
+      <td>固定返回 <code>PENDING</code></td>
+    </tr>
+    <tr>
+      <td><code>request_id</code></td>
+      <td>string</td>
+      <td>请求唯一标识</td>
+    </tr>
+    <tr>
+      <td><code>model</code></td>
+      <td>string</td>
+      <td>本次调用的模型名称</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="create-response-example">1.6 响应示例</h3>
+<pre><span class="lang-tag">JSON</span><code>{
+  "output": {
+    "task_id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx",
+    "task_status": "PENDING"
+  },
+  "request_id": "81df29ac-173b-4021-a69f-xxxxxxxxxxxx",
+  "model": "doubao-seedance-2-0-260128"
+}</code></pre>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="query-task">
+<h2>二、查询任务状态</h2>
+
+<h3>2.1 请求地址</h3>
+<pre><span class="lang-tag">HTTP</span><code>GET /v1/videos/generations/task/{taskId}</code></pre>
+
+<h3 id="query-params">2.2 路径参数</h3>
+<table>
+  <thead>
+    <tr>
+      <th>参数</th>
+      <th>类型</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>taskId</code></td>
+      <td>string</td>
+      <td>提交任务时返回的 <code>task_id</code> 值</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2.3 请求示例</h3>
+<pre><span class="lang-tag">HTTP</span><code>GET /v1/videos/generations/task/a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx
+Authorization: Bearer &lt;your-api-key&gt;</code></pre>
+
+<h3 id="query-response">2.4 响应参数</h3>
+<table>
+  <thead>
+    <tr>
+      <th>参数</th>
+      <th>类型</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>id</code></td>
+      <td>string</td>
+      <td>任务 ID（与提交时 <code>output.task_id</code> 一致）</td>
+    </tr>
+    <tr>
+      <td><code>task_id</code></td>
+      <td>string</td>
+      <td>同 <code>id</code></td>
+    </tr>
+    <tr>
+      <td><code>status</code></td>
+      <td>string</td>
+      <td><code>running</code> / <code>succeeded</code> / <code>failed</code></td>
+    </tr>
+    <tr>
+      <td><code>model</code></td>
+      <td>string</td>
+      <td>模型名称</td>
+    </tr>
+    <tr>
+      <td><code>content.video_url</code></td>
+      <td>string</td>
+      <td>视频下载 URL（仅 <code>succeeded</code> 时返回，24h 有效）</td>
+    </tr>
+    <tr>
+      <td><code>ratio</code></td>
+      <td>string</td>
+      <td>宽高比</td>
+    </tr>
+    <tr>
+      <td><code>resolution</code></td>
+      <td>string</td>
+      <td>分辨率，如 <code>720p</code></td>
+    </tr>
+    <tr>
+      <td><code>duration</code></td>
+      <td>int</td>
+      <td>视频时长（秒）</td>
+    </tr>
+    <tr>
+      <td><code>seed</code></td>
+      <td>int</td>
+      <td>生成种子</td>
+    </tr>
+    <tr>
+      <td><code>framespersecond</code></td>
+      <td>int</td>
+      <td>帧率</td>
+    </tr>
+    <tr>
+      <td><code>execution_expires_after</code></td>
+      <td>int</td>
+      <td>结果过期时间（秒）</td>
+    </tr>
+    <tr>
+      <td><code>created_at</code></td>
+      <td>int</td>
+      <td>创建时间（Unix 时间戳）</td>
+    </tr>
+    <tr>
+      <td><code>updated_at</code></td>
+      <td>int</td>
+      <td>更新时间（Unix 时间戳）</td>
+    </tr>
+    <tr>
+      <td><code>usage.completion_tokens</code></td>
+      <td>int</td>
+      <td>生成 Token 数</td>
+    </tr>
+    <tr>
+      <td><code>usage.total_tokens</code></td>
+      <td>int</td>
+      <td>总 Token 数</td>
+    </tr>
+    <tr>
+      <td><code>usage.SR</code></td>
+      <td>int</td>
+      <td>分辨率档位（720 / 1080）</td>
+    </tr>
+    <tr>
+      <td><code>usage.duration</code></td>
+      <td>int</td>
+      <td>视频时长（秒）</td>
+    </tr>
+    <tr>
+      <td><code>usage.ratio</code></td>
+      <td>string</td>
+      <td>宽高比</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="query-examples">2.5 响应示例</h3>
+
+<h4>生成成功（succeeded）</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+  "id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx",
+  "content": {
+    "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-0/xxxxxxxx.mp4?X-Tos-Algorithm=..."
+  },
+  "created_at": 1782891873,
+  "duration": 5,
+  "execution_expires_after": 172800,
+  "framespersecond": 24,
+  "model": "doubao-seedance-2-0-260128",
+  "ratio": "16:9",
+  "resolution": "720p",
+  "seed": 14227,
+  "status": "succeeded",
+  "updated_at": 1782892090,
+  "usage": {
+    "SR": 720,
+    "completion_tokens": 108900,
+    "duration": 5,
+    "ratio": "16:9",
+    "total_tokens": 108900
+  },
+  "task_id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx"
+}</code></pre>
+
+<h4>处理中（running）</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+  "id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx",
+  "model": "doubao-seedance-2-0-260128",
+  "status": "running",
+  "created_at": 1782891873,
+  "updated_at": 1782891873,
+  "task_id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx"
+}</code></pre>
+
+<h4>生成失败（failed）</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+  "id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx",
+  "model": "doubao-seedance-2-0-260128",
+  "status": "failed",
+  "created_at": 1782891873,
+  "updated_at": 1782892090,
+  "task_id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx"
+}</code></pre>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="asset-common">
+<h2>三、素材管理接口（通用约定）</h2>
+<p>视频生成常需引用已上传的参考图片/视频/音频。网关提供素材库能力，对<strong>素材组（AssetGroup）</strong>和<strong>素材（Asset）</strong>做 CRUD，统一中转到火山素材库上游。</p>
+
+<h3>3.1 统一入口</h3>
+<pre><span class="lang-tag">HTTP</span><code>POST /v1/api/asset?Action=&lt;Action&gt;&amp;Version=2024-01-01</code></pre>
+<ul>
+  <li><code>Action</code> 决定具体接口，<code>Version</code> 固定 <code>2024-01-01</code></li>
+  <li>全部 <code>POST</code> 方法，<code>Content-Type: application/json</code></li>
+  <li>鉴权：<code>Authorization: Bearer &lt;your-api-key&gt;</code>（必填）</li>
+  <li>请求体字段名 <strong>PascalCase</strong>（如 <code>Name</code>、<code>GroupId</code>、<code>Filter.GroupIds</code>）</li>
+</ul>
+
+<h3>3.2 Action 列表速览</h3>
+<table>
+  <thead>
+    <tr><th>Action</th><th>说明</th><th>章节</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>CreateAssetGroup</code></td><td>创建素材组</td><td>四.1</td></tr>
+    <tr><td><code>ListAssetGroups</code></td><td>列出素材组</td><td>四.2</td></tr>
+    <tr><td><code>GetAssetGroup</code></td><td>查询单个素材组</td><td>四.3</td></tr>
+    <tr><td><code>UpdateAssetGroup</code></td><td>更新素材组</td><td>四.4</td></tr>
+    <tr><td><code>DeleteAssetGroup</code></td><td>删除素材组</td><td>四.5</td></tr>
+    <tr><td><code>CreateAsset</code></td><td>创建素材</td><td>五.1</td></tr>
+    <tr><td><code>ListAssets</code></td><td>列出素材</td><td>五.2</td></tr>
+    <tr><td><code>GetAsset</code></td><td>查询单个素材</td><td>五.3</td></tr>
+    <tr><td><code>UpdateAsset</code></td><td>更新素材</td><td>五.4</td></tr>
+    <tr><td><code>DeleteAsset</code></td><td>删除素材</td><td>五.5</td></tr>
+  </tbody>
+</table>
+<div class="callout warning"><strong>私有隔离：</strong>所有查询/更新/删除带 key 归属过滤，只能操作自己 key 下的组与素材。越权访问或资源不存在统一返回 404（不区分两者）。</div>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="asset-group">
+<h2>四、素材组管理（AssetGroup）</h2>
+
+<h3 id="asset-group-create">4.1 CreateAssetGroup — 创建素材组</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Name</code></td><td>string</td><td>是</td><td>组名（可中文，同 key 下唯一，跨 key 隔离）</td></tr>
+    <tr><td><code>Description</code></td><td>string</td><td>否</td><td>组描述</td></tr>
+    <tr><td><code>GroupType</code></td><td>string</td><td>否</td><td>组类型，如 <code>AIGC</code></td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=CreateAssetGroup&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Name":"测试组","Description":"用于视频参考的图片","GroupType":"AIGC"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "Id": "187507198107058200",
+  "Name": "测试组"
+}</code></pre>
+
+<h3 id="asset-group-list">4.2 ListAssetGroups — 列出素材组</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Filter.Name</code></td><td>string</td><td>否</td><td>按组名过滤（模糊匹配，匹配 Name 包含该值的组）</td></tr>
+    <tr><td><code>Filter.GroupIds</code></td><td>string[]</td><td>否</td><td>按组 Id 列表过滤</td></tr>
+    <tr><td><code>PageNumber</code></td><td>int</td><td>否</td><td>页码，默认 1</td></tr>
+    <tr><td><code>PageSize</code></td><td>int</td><td>否</td><td>每页条数，默认 10</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=ListAssetGroups&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Filter":{"Name":"测试","GroupIds":["187507198107058200","187500607043534872"]},"PageNumber":1,"PageSize":10}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "Items": [
+    {
+      "Id": "187507198107058200",
+      "Name": "测试组",
+      "Description": "用于视频参考的图片",
+      "GroupType": "AIGC",
+      "CreateTime": "2026-07-10T08:00:00Z",
+      "UpdateTime": "2026-07-10T08:00:00Z"
+    },
+    {
+      "Id": "187500607043534872",
+      "Name": "示例组",
+      "Description": "...",
+      "GroupType": "AIGC",
+      "CreateTime": "2026-07-10T08:00:00Z",
+      "UpdateTime": "2026-07-10T08:00:00Z"
+    }
+  ],
+  "TotalCount": 2,
+  "PageNumber": 1,
+  "PageSize": 10
+}</code></pre>
+
+<h3 id="asset-group-get">4.3 GetAssetGroup — 查询单个素材组</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Id</code></td><td>string</td><td>是</td><td>组 Id</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=GetAssetGroup&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Id":"187507198107058200"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "Id": "187507198107058200",
+  "Name": "测试组",
+  "Description": "用于视频参考的图片",
+  "GroupType": "AIGC",
+  "CreateTime": "2026-07-10T08:00:00Z",
+  "UpdateTime": "2026-07-10T08:00:00Z"
+}</code></pre>
+
+<h3 id="asset-group-update">4.4 UpdateAssetGroup — 更新素材组</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Id</code></td><td>string</td><td>是</td><td>组 Id</td></tr>
+    <tr><td><code>Name</code></td><td>string</td><td>否</td><td>新组名</td></tr>
+    <tr><td><code>Description</code></td><td>string</td><td>否</td><td>新描述</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=UpdateAssetGroup&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Id":"187507198107058200","Name":"新名字","Description":"新描述"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "Id": "187507198107058200",
+  "Name": "新名字",
+  "Description": "新描述",
+  "GroupType": "AIGC"
+}</code></pre>
+
+<h3 id="asset-group-delete">4.5 DeleteAssetGroup — 删除素材组</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Id</code></td><td>string</td><td>是</td><td>组 Id</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=DeleteAssetGroup&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Id":"187507198107058200"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "ResponseMetadata": {
+    "RequestId": "req-20260710xxxxx",
+    "Action": "DeleteAssetGroup",
+    "Version": "2024-01-01"
+  },
+  "Result": {}
+}</code></pre>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="asset">
+<h2>五、素材管理（Asset）</h2>
+
+<h3 id="asset-create">5.1 CreateAsset — 创建素材</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Name</code></td><td>string</td><td>是</td><td>素材名（可中文）</td></tr>
+    <tr><td><code>GroupId</code></td><td>string</td><td>是</td><td>所属组 Id（必须归属当前 key）</td></tr>
+    <tr><td><code>URL</code></td><td>string</td><td>是</td><td>素材资源 URL</td></tr>
+    <tr><td><code>AssetType</code></td><td>string</td><td>是</td><td>素材类型：<code>Image</code> / <code>Video</code> / <code>Audio</code></td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=CreateAsset&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"GroupId":"187507198107058200","URL":"https://example.com/cat.jpg","AssetType":"Image","Name":"猫咪"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "Id": "182533555060998168",
+  "Name": "猫咪"
+}</code></pre>
+<div class="callout warning"><strong>异步就绪：</strong>素材创建后 <code>Status</code> 初始为 <code>Processing</code>，就绪后变 <code>Active</code>，失败为 <code>Failed</code>。<strong>仅 <code>Active</code> 素材可用于视频 <code>asset://</code> 引用</strong>。Group 不存在/越权 → 404。</div>
+
+<h3 id="asset-list">5.2 ListAssets — 列出素材</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Filter.GroupIds</code></td><td>string[]</td><td>否</td><td>按组 Id 列表过滤</td></tr>
+    <tr><td><code>PageNumber</code></td><td>int</td><td>否</td><td>页码，默认 1</td></tr>
+    <tr><td><code>PageSize</code></td><td>int</td><td>否</td><td>每页条数，默认 10</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=ListAssets&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Filter":{"GroupIds":["187507198107058200"]},"PageNumber":1,"PageSize":10}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "Items": [
+    {
+      "Id": "182533555060998168",
+      "Name": "猫咪",
+      "GroupId": "187507198107058200",
+      "AssetType": "Image",
+      "Status": "Active",
+      "URL": "https://...",
+      "CreateTime": "2026-07-10T08:00:00Z",
+      "UpdateTime": "2026-07-10T08:00:00Z"
+    }
+  ],
+  "TotalCount": 1,
+  "PageNumber": 1,
+  "PageSize": 10
+}</code></pre>
+<div class="callout note"><code>URL</code> 由上游签发，约 12h 失效。<code>Processing</code> 态素材会按需并发调上游 <code>GetAsset</code> 补实时 <code>Status</code>/<code>URL</code>。</div>
+
+<h3 id="asset-get">5.3 GetAsset — 查询单个素材</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Id</code></td><td>string</td><td>是</td><td>素材 Id</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=GetAsset&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Id":"182533555060998168"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "Id": "182533555060998168",
+  "GroupId": "187507198107058200",
+  "Name": "猫咪",
+  "AssetType": "Image",
+  "Status": "Active",
+  "URL": "https://...",
+  "CreateTime": "2026-07-10T08:00:00Z",
+  "UpdateTime": "2026-07-10T08:00:00Z"
+}</code></pre>
+
+<h3 id="asset-update">5.4 UpdateAsset — 更新素材</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Id</code></td><td>string</td><td>是</td><td>素材 Id</td></tr>
+    <tr><td><code>Name</code></td><td>string</td><td>否</td><td>新素材名</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=UpdateAsset&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Id":"182533555060998168","Name":"新名字"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "Id": "182533555060998168",
+  "Name": "新名字",
+  "GroupId": "187507198107058200",
+  "AssetType": "Image",
+  "Status": "Active",
+  "URL": "https://...",
+  "CreateTime": "2026-07-10T08:00:00Z",
+  "UpdateTime": "2026-07-10T08:00:00Z"
+}</code></pre>
+
+<h3 id="asset-delete">5.5 DeleteAsset — 删除素材</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Id</code></td><td>string</td><td>是</td><td>素材 Id</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=DeleteAsset&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"Id":"182533555060998168"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "ResponseMetadata": {
+    "RequestId": "req-20260710xxxxx",
+    "Action": "DeleteAsset",
+    "Version": "2024-01-01"
+  },
+  "Result": {}
+}</code></pre>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="asset-ref">
+<h2>六、视频生成中的 asset:// 引用</h2>
+<p>视频生成接口 <code>POST /v1/videos/generations</code> 的 <code>content</code> 数组里，可用 <code>asset://&lt;Id&gt;</code> 引用已创建的素材替代公网 URL。网关在转发上游前自动校验所有 <code>asset://</code> 引用是否归属当前 Authorization key，<strong>不属于则 fail-closed 返回 403</strong>。</p>
+
+<h3>6.1 三种引用写法</h3>
+<pre><span class="lang-tag">JSON</span><code>// 图片引用（role: reference_image / first_frame / last_frame）
+{"type":"image_url","role":"reference_image","image_url":{"url":"asset://182533555060998168"}}
+
+// 视频引用（role: reference_video）
+{"type":"video_url","role":"reference_video","video_url":{"url":"asset://&lt;Id&gt;"}}
+
+// 音频引用（role: reference_audio）
+{"type":"audio_url","role":"reference_audio","audio_url":{"url":"asset://&lt;Id&gt;"}}</code></pre>
+
+<h3>6.2 归属校验行为</h3>
+<table>
+  <thead><tr><th>场景</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td>引用自己 key 下的 Active 素材</td><td>200 放行，正常生成 task_id</td></tr>
+    <tr><td>引用他人 key 下的素材</td><td>403 <code>asset not owned by key: [...]</code></td></tr>
+    <tr><td>一次请求引用了多个不同 provider 的素材</td><td>403 <code>assets from multiple providers in one request</code></td></tr>
+    <tr><td>content 里无 asset:// 引用（纯文生视频/公网 URL）</td><td>200 不校验，直接放行</td></tr>
+    <tr><td>归属校验服务不可用/超时</td><td>403 fail-closed</td></tr>
+  </tbody>
+</table>
+
+<h3>6.3 端到端示例（建组 → 建素材 → 轮询 Active → 视频生成）</h3>
+<pre><span class="lang-tag">Bash</span><code>GATEWAY="http://&lt;gateway-host&gt;"
+API_KEY="&lt;your-api-key&gt;"
+
+# 1. 创建素材组
+GROUP_ID=$(curl -s -X POST "${GATEWAY}/v1/api/asset?Action=CreateAssetGroup&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" -H "Authorization: Bearer ${API_KEY}" \
+  -d '{"Name":"视频素材组","GroupType":"AIGC"}' | jq -r '.Id')
+echo "组 ID: ${GROUP_ID}"
+
+# 2. 创建素材（图片）
+ASSET_ID=$(curl -s -X POST "${GATEWAY}/v1/api/asset?Action=CreateAsset&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" -H "Authorization: Bearer ${API_KEY}" \
+  -d "{\"GroupId\":\"${GROUP_ID}\",\"URL\":\"https://example.com/cat.jpg\",\"AssetType\":\"Image\",\"Name\":\"猫咪\"}" \
+  | jq -r '.Id')
+echo "素材 ID: ${ASSET_ID}"
+
+# 3. 轮询素材就绪（Status=Active）
+while true; do
+  STATUS=$(curl -s -X POST "${GATEWAY}/v1/api/asset?Action=GetAsset&amp;Version=2024-01-01" \
+    -H "Content-Type: application/json" -H "Authorization: Bearer ${API_KEY}" \
+    -d "{\"Id\":\"${ASSET_ID}\"}" | jq -r '.Status')
+  echo "素材状态: ${STATUS}"
+  [ "${STATUS}" = "Active" ] &amp;&amp; break
+  sleep 5
+done
+
+# 4. 提交视频生成任务，用 asset:// 引用素材
+TASK_ID=$(curl -s -X POST "${GATEWAY}/v1/videos/generations" \
+  -H "Content-Type: application/json" -H "Authorization: Bearer ${API_KEY}" \
+  -d "{\"model\":\"doubao-seedance-2-0-260128\",\"content\":[{\"type\":\"text\",\"text\":\"[Image 1] 一只猫在花园里奔跑\"},{\"type\":\"image_url\",\"role\":\"reference_image\",\"image_url\":{\"url\":\"asset://${ASSET_ID}\"}}],\"duration\":5}" \
+  | jq -r '.output.task_id')
+echo "任务 ID: ${TASK_ID}"
+
+# 5. 轮询视频生成结果
+while true; do
+  RESULT=$(curl -s "${GATEWAY}/v1/videos/generations/task/${TASK_ID}" \
+    -H "Authorization: Bearer ${API_KEY}")
+  STATUS=$(echo "${RESULT}" | jq -r '.status')
+  echo "任务状态: ${STATUS}"
+  if [ "${STATUS}" = "succeeded" ]; then
+    echo "视频 URL: $(echo "${RESULT}" | jq -r '.content.video_url')"
+    break
+  elif [ "${STATUS}" = "failed" ]; then
+    echo "失败: $(echo "${RESULT}" | jq -r '.error.message')"
+    break
+  fi
+  sleep 10
+done</code></pre>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="errors">
+<h2>七、错误响应</h2>
+
+<p>错误响应统一为 OpenAI 兼容格式 <code>{"error":{"message","type","code"}}</code>；部分场景也会返回火山风格 <code>{"code","message","request_id"}</code>。示例如下：</p>
+<pre><span class="lang-tag">JSON</span><code>{
+  "error": {
+    "message": "model is required for video generation",
+    "type": "invalid_request_error",
+    "code": "invalid_request_error"
+  }
+}</code></pre>
+
+<pre><span class="lang-tag">JSON</span><code>{
+  "error": {
+    "message": "input.prompt is required for doubao-seedance-2-0-260128 video generation",
+    "type": "invalid_request_error",
+    "code": "invalid_request_error"
+  }
+}</code></pre>
+
+<pre><span class="lang-tag">JSON</span><code>{
+  "code": "InvalidApiKey",
+  "message": "No API-key provided.",
+  "request_id": "7438d53d-6eb8-4596-8835-xxxxxxxxxxxx"
+}</code></pre>
+
+<h3>7.1 素材接口错误</h3>
+<table>
+  <thead><tr><th>HTTP</th><th>示例 body</th></tr></thead>
+  <tbody>
+    <tr><td>400</td><td><code>{"error":{"message":"Name is required","type":"invalid_request_error","code":"invalid_request_error"}}</code></td></tr>
+    <tr><td>403</td><td><code>{"error":{"message":"asset not owned by key: [\"187...\"]","type":"invalid_request_error","code":"forbidden"}}</code></td></tr>
+    <tr><td>404</td><td><code>{"error":{"message":"The requested model does not exist, or the request path or parameters are invalid. Please verify the model name and request format.","type":"not_found","code":"404"}}</code></td></tr>
+  </tbody>
+</table>
+<div class="callout note">404 不区分"资源不存在"与"越权访问他人资源"，两者都返回此 404。</div>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="code-examples">
+<h2>八、代码示例</h2>
+
+<h3>8.1 cURL</h3>
+<pre><span class="lang-tag">Bash</span><code># 1. 提交 Seedance 视频生成任务
+TASK_ID=$(curl -s -X POST http://&lt;gateway-host&gt;/v1/videos/generations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{
+    "model": "doubao-seedance-2-0-260128",
+    "content": [
+      {
+        "type": "text",
+        "text": "一只橘猫在午后阳光下的窗台上打盹，微风吹动窗帘，镜头缓慢推进"
+      }
+    ],
+    "duration": 5,
+    "ratio": "16:9",
+    "watermark": false
+  }' | jq -r '.output.task_id')
+
+echo "任务ID: $TASK_ID"
+
+# 2. 轮询任务状态
+while true; do
+  sleep 10
+  RESULT=$(curl -s "http://&lt;gateway-host&gt;/v1/videos/generations/task/$TASK_ID" \
+    -H "Authorization: Bearer &lt;your-api-key&gt;")
+
+  STATUS=$(echo "$RESULT" | jq -r '.status // empty')
+  echo "当前状态: $STATUS"
+
+  if [ "$STATUS" = "succeeded" ]; then
+    echo "视频 URL:"
+    echo "$RESULT" | jq -r '.content.video_url // empty'
+    break
+  elif [ "$STATUS" = "failed" ]; then
+    echo "任务失败"
+    break
+  fi
+done</code></pre>
+
+<h3>8.2 Python — requests</h3>
+<pre><span class="lang-tag">Python</span><code>import requests
+import time
+
+GATEWAY = "http://&lt;gateway-host&gt;"
+API_KEY = "&lt;your-api-key&gt;"
+HEADERS = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+# 1. 提交 Seedance 视频生成任务
+create_url = f"{GATEWAY}/v1/videos/generations"
+payload = {
+    "model": "doubao-seedance-2-0-260128",
+    "content": [
+        {
+            "type": "text",
+            "text": "[Image 1]海边落日，海面波光流动，氛围感电影色调"
+        },
+        {
+            "type": "image_url",
+            "image_url": {"url": "https://example.com/sunset.jpg"},
+            "role": "reference_image"
+        }
+    ],
+    "duration": 5,
+    "ratio": "16:9"
+}
+
+response = requests.post(create_url, json=payload, headers=HEADERS)
+result = response.json()
+
+if response.status_code != 200:
+    print("提交任务失败:", result.get("error", {}).get("message", result))
+    exit(1)
+
+task_id = result["output"]["task_id"]
+print(f"任务已提交，ID: {task_id}")
+
+# 2. 轮询任务状态
+query_url = f"{GATEWAY}/v1/videos/generations/task/{task_id}"
+while True:
+    time.sleep(10)
+    resp = requests.get(query_url, headers=HEADERS)
+    result = resp.json()
+    status = result.get("status")
+    print(f"当前状态: {status}")
+    if status == "succeeded":
+        print("视频 URL:", result["content"]["video_url"])
+        print("分辨率:", result["usage"]["SR"], "P")
+        print("时长:", result["usage"]["duration"], "秒")
+        break
+    elif status == "failed":
+        print("任务失败")
+        break</code></pre>
+
+<h3>8.3 Java — OkHttp</h3>
+<pre><span class="lang-tag">Java</span><code>import okhttp3.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class SeedanceVideoExample {
+    private static final String GATEWAY = "http://&lt;gateway-host&gt;";
+    private static final String API_KEY = "&lt;your-api-key&gt;";
+    private static final OkHttpClient CLIENT = new OkHttpClient();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    public static void main(String[] args) throws Exception {
+        // 1. 提交 Seedance 视频生成任务
+        String createJson = """
+            {
+              "model": "doubao-seedance-2-0-260128",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "城市夜景航拍，霓虹灯闪烁，车流如织，镜头缓慢上升"
+                }
+              ],
+              "duration": 5,
+              "ratio": "16:9"
+            }
+        """;
+
+        Request createRequest = new Request.Builder()
+            .url(GATEWAY + "/v1/videos/generations")
+            .header("Content-Type", "application/json")
+            .header("Authorization", "Bearer " + API_KEY)
+            .post(RequestBody.create(createJson, MediaType.get("application/json")))
+            .build();
+
+        try (Response resp = CLIENT.newCall(createRequest).execute()) {
+            String body = resp.body().string();
+            String taskId = MAPPER.readTree(body).at("/output/task_id").asText();
+            System.out.println("任务已提交, ID: " + taskId);
+
+            // 2. 轮询任务状态
+            String queryUrl = GATEWAY + "/v1/videos/generations/task/" + taskId;
+            while (true) {
+                Thread.sleep(10000);
+                Request queryRequest = new Request.Builder()
+                    .url(queryUrl)
+                    .header("Authorization", "Bearer " + API_KEY)
+                    .get()
+                    .build();
+
+                try (Response qResp = CLIENT.newCall(queryRequest).execute()) {
+                    String qBody = qResp.body().string();
+                    var json = MAPPER.readTree(qBody);
+                    String status = json.at("/status").asText();
+                    System.out.println("当前状态: " + status);
+
+                    if ("succeeded".equals(status)) {
+                        System.out.println("视频 URL: " + json.at("/content/video_url").asText());
+                        break;
+                    } else if ("failed".equals(status)) {
+                        System.out.println("任务失败");
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}</code></pre>
+
+<h3>8.4 Python — 端到端（素材库 + 视频生成）</h3>
+<pre><span class="lang-tag">Python</span><code>import requests, time
+
+GATEWAY = "http://&lt;gateway-host&gt;"
+API_KEY = "&lt;your-api-key&gt;"
+H = {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
+
+def asset(action, body):
+    r = requests.post(f"{GATEWAY}/v1/api/asset?Action={action}&amp;Version=2024-01-01", json=body, headers=H)
+    return r.json()
+
+# 1. 创建素材组
+group = asset("CreateAssetGroup", {"Name": "视频素材组", "GroupType": "AIGC"})
+group_id = group["Id"]
+
+# 2. 创建素材
+asset_resp = asset("CreateAsset", {
+    "GroupId": group_id, "URL": "https://example.com/cat.jpg",
+    "AssetType": "Image", "Name": "猫咪"
+})
+asset_id = asset_resp["Id"]
+
+# 3. 轮询素材就绪
+while True:
+    s = asset("GetAsset", {"Id": asset_id}).get("Status")
+    print("素材状态:", s)
+    if s == "Active":
+        break
+    time.sleep(5)
+
+# 4. 提交视频生成任务，用 asset:// 引用素材
+resp = requests.post(f"{GATEWAY}/v1/videos/generations", headers=H, json={
+    "model": "doubao-seedance-2-0-260128",
+    "content": [
+        {"type": "text", "text": "[Image 1] 一只猫在花园里奔跑"},
+        {"type": "image_url", "role": "reference_image",
+         "image_url": {"url": f"asset://{asset_id}"}}
+    ],
+    "duration": 5
+})
+task_id = resp.json()["output"]["task_id"]
+
+# 5. 轮询视频结果
+while True:
+    time.sleep(10)
+    r = requests.get(f"{GATEWAY}/v1/videos/generations/task/{task_id}", headers=H).json()
+    print("任务状态:", r["status"])
+    if r["status"] == "succeeded":
+        print("视频 URL:", r["content"]["video_url"])
+        break
+    elif r["status"] == "failed":
+        print("失败:", r.get("error", {}).get("message"))
+        break</code></pre>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="notes">
+<h2>九、注意事项</h2>
+
+<div class="callout warning">
+  <strong>有效期限制：</strong><code>task_id</code> 及视频下载 URL 有效期为 24 小时，请及时下载。
+</div>
+
+<div class="callout note">
+  <strong>轮询间隔：</strong>建议 5–15 秒轮询一次，避免过于频繁。
+</div>
+
+<div class="callout tip">
+  <strong>无需 <code>X-DashScope-Async</code> 头：</strong>Seedance 系列使用 task-based 端点，不需要此请求头。
+</div>
+
+<div class="callout tip">
+  <strong>素材引用规则：</strong>在 <code>type: "text"</code> 中，按 <code>content</code> 数组顺序从 1 开始编号，使用 <code>[Image N]</code> / <code>[Video N]</code> / <code>[Audio N]</code> 引用对应素材。
+</div>
+
+<div class="callout warning">
+  <strong>素材 URL 有效期：</strong><code>GetAsset</code> / <code>ListAssets</code> 返回的 <code>URL</code> 由上游签发，约 12 小时失效，需及时使用。
+</div>
+
+<div class="callout note">
+  <strong>素材就绪才可引用：</strong>仅 <code>Status=Active</code> 的素材可用于视频 <code>asset://</code> 引用；创建后通常需轮询 5–30 秒等待 <code>Processing → Active</code>。
+</div>
+
+<div class="callout warning">
+  <strong>跨 key 引用禁止：</strong><code>asset://</code> 引用他人 key 下的素材会被 fail-closed 拦截返回 403。
+</div>
+
+<div class="callout note">
+  <strong>私有隔离：</strong>素材组/素材的查询、更新、删除均带 key 归属过滤，越权访问与资源不存在统一返回 404。
+</div>
+</section>
+
+<footer style="margin-top:60px;padding-top:20px;border-top:1px solid var(--border);font-size:13px;color:var(--text-secondary);text-align:center;">
+  Doubao Seedance Video Generation API &mdash; AI Gateway Plugin &mdash; 文档版本 2.1
+</footer>
+
+</main>
+
+</body>
+</html>

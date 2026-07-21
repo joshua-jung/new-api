@@ -436,7 +436,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		return nil
 	}
 
-	baseURL := constant.ChannelBaseURLs[channelModel.Type]
+	baseURL := constant.GetDefaultChannelBaseURL(channelModel.Type)
 	if channelModel.GetBaseURL() != "" {
 		baseURL = channelModel.GetBaseURL()
 	}

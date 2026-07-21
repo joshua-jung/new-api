@@ -66,3 +66,20 @@ func TestAdvancedCustomChannelRequiresModelListRouteOnlyWhenUpdateChecksEnabled(
 		})
 	}
 }
+
+func TestTokenHubChannelRequiresBaseURL(t *testing.T) {
+	emptyBaseURL := ""
+	channel := &Channel{
+		Type:    constant.ChannelTypeTokenHub,
+		BaseURL: &emptyBaseURL,
+	}
+
+	err := channel.ValidateSettings()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires a base URL")
+
+	baseURL := "https://provider.example"
+	channel.BaseURL = &baseURL
+	require.NoError(t, channel.ValidateSettings())
+}

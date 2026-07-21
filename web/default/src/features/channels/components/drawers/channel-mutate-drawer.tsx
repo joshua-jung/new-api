@@ -958,7 +958,7 @@ export function ChannelMutateDrawer({
   )
   const advancedHaveErrors =
     hasAdvancedSettingsErrors(formErrors) || Boolean(formErrors.advanced_custom)
-  const providerRequiresBaseUrl = [3, 8, 36, 45].includes(currentType)
+  const providerRequiresBaseUrl = [3, 8, 36, 45, 10000].includes(currentType)
   const providerRequiresOther = [3, 18, 21, 39, 41, 49].includes(currentType)
   const identityComplete = Boolean(currentName?.trim() && currentType > 0)
   const credentialsComplete = Boolean(
