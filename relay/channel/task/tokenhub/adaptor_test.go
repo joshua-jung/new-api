@@ -170,21 +170,34 @@ func TestSeedanceProtocolRejectsUnregisteredModel(t *testing.T) {
 }
 
 func TestSeedanceTaskResultMapsUsageForTokenSettlement(t *testing.T) {
-	adaptor := &TaskAdaptor{}
-	result, err := adaptor.ParseTaskResult([]byte(`{
-		"id":"upstream-task",
-		"task_id":"upstream-task",
-		"model":"doubao-seedance-2-0-mini-260615",
-		"status":"succeeded",
-		"content":{"video_url":"https://example.com/result.mp4"},
-		"usage":{"completion_tokens":108900,"total_tokens":108900,"SR":720,"duration":5,"ratio":"16:9"}
-	}`))
+	tests := []struct {
+		name string
+		sr   string
+	}{
+		{name: "numeric resolution", sr: `720`},
+		{name: "string resolution", sr: `"720p"`},
+	}
 
-	require.NoError(t, err)
-	assert.Equal(t, "SUCCESS", result.Status)
-	assert.Equal(t, "https://example.com/result.mp4", result.Url)
-	assert.Equal(t, 108900, result.CompletionTokens)
-	assert.Equal(t, 108900, result.TotalTokens)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			adaptor := &TaskAdaptor{}
+			body := `{
+				"id":"upstream-task",
+				"task_id":"upstream-task",
+				"model":"doubao-seedance-2-0-mini-260615",
+				"status":"succeeded",
+				"content":{"video_url":"https://example.com/result.mp4"},
+				"usage":{"completion_tokens":108900,"total_tokens":108900,"SR":` + test.sr + `,"duration":5,"ratio":"16:9"}
+			}`
+			result, err := adaptor.ParseTaskResult([]byte(body))
+
+			require.NoError(t, err)
+			assert.Equal(t, "SUCCESS", result.Status)
+			assert.Equal(t, "https://example.com/result.mp4", result.Url)
+			assert.Equal(t, 108900, result.CompletionTokens)
+			assert.Equal(t, 108900, result.TotalTokens)
+		})
+	}
 }
 
 func TestSeedanceSubmitResponseKeepsUpstreamTaskIDPrivate(t *testing.T) {

@@ -845,8 +845,8 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
     </tr>
     <tr>
       <td><code>usage.SR</code></td>
-      <td>int</td>
-      <td>分辨率档位（720 / 1080）</td>
+      <td>int / string</td>
+      <td>分辨率档位（如 720 或 <code>720p</code>）</td>
     </tr>
     <tr>
       <td><code>usage.duration</code></td>
@@ -880,7 +880,7 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
   "status": "succeeded",
   "updated_at": 1782892090,
   "usage": {
-    "SR": 720,
+    "SR": "720p",
     "completion_tokens": 108900,
     "duration": 5,
     "ratio": "16:9",

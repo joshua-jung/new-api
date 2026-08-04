@@ -60,7 +60,7 @@ type seedanceTaskResponse struct {
 	Usage                 struct {
 		CompletionTokens int    `json:"completion_tokens"`
 		TotalTokens      int    `json:"total_tokens"`
-		SR               int    `json:"SR"`
+		SR               any    `json:"SR"`
 		Duration         int    `json:"duration"`
 		Ratio            string `json:"ratio"`
 	} `json:"usage"`
