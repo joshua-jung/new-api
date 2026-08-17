@@ -250,6 +250,8 @@
   .flow-diagram .step.running { background: var(--primary); }
   .flow-diagram .step.success { background: var(--success); }
   .flow-diagram .step.failed { background: var(--danger); }
+  .flow-diagram .step.queued { background: #9aa0a6; }
+  .flow-diagram .step.expired { background: #f9a825; }
   .flow-diagram .arrow { color: var(--text-secondary); font-size: 18px; }
 
   @media (max-width: 768px) {
@@ -304,10 +306,13 @@
   <a href="#asset-get" class="sub">5.3 GetAsset</a>
   <a href="#asset-update" class="sub">5.4 UpdateAsset</a>
   <a href="#asset-delete" class="sub">5.5 DeleteAsset</a>
-  <a href="#asset-ref">六、视频生成中的 asset:// 引用</a>
-  <a href="#errors">七、错误响应</a>
-  <a href="#code-examples">八、代码示例</a>
-  <a href="#notes">九、注意事项</a>
+  <a href="#visual-validate">六、视觉校验（VisualValidate）</a>
+  <a href="#visual-validate-create" class="sub">6.1 CreateVisualValidateSession</a>
+  <a href="#visual-validate-get" class="sub">6.2 GetVisualValidateResult</a>
+  <a href="#asset-ref">七、视频生成中的 asset:// 引用</a>
+  <a href="#errors">八、错误响应</a>
+  <a href="#code-examples">九、代码示例</a>
+  <a href="#notes">十、注意事项</a>
 </nav>
 
 <main>
@@ -317,7 +322,10 @@
 
 <section id="overview">
 <h2>概述</h2>
-<p>网关支持火山方舟（Ark）Seedance 系列视频生成模型（<code>doubao-seedance-2-0-260128</code>、<code>doubao-seedance-2-0-fast-260128</code>、<code>doubao-seedance-2-0-mini-260615</code>、<code>doubao-seedance-2-5-cloud</code>），采用 <strong>创建任务 → 轮询结果</strong> 的异步调用模式。</p>
+<p>网关支持火山方舟（Ark）Seedance 系列视频生成模型（<code>doubao-seedance-2-0-260128</code>、<code>doubao-seedance-2-0-fast-260128</code>、<code>doubao-seedance-2-0-mini-260615</code>、<code>doubao-seedance-2-5-260628</code>），采用 <strong>创建任务 → 轮询结果</strong> 的异步调用模式。</p>
+<div class="callout note">
+  <strong>接入协议：</strong>网关地址的协议前缀随部署环境不同：测试环境为 <code>http://</code>，生产环境为 <code>https://</code>。本文档所有示例统一以测试环境 <code>http://&lt;gateway-host&gt;</code> 为基准，仅作演示；接入生产环境时请将前缀替换为 <code>https://</code>，<code>&lt;gateway-host&gt;</code> 替换为实际网关域名。
+</div>
 </section>
 
 <section id="model-list">
@@ -347,9 +355,9 @@
       <td>轻量化模型，适合简单任务</td>
     </tr>
     <tr>
-      <td><code>doubao-seedance-2-5-cloud</code></td>
-      <td>Cloud 版</td>
-      <td>豆包 Seedance 2.5 Cloud 视频生成模型</td>
+      <td><code>doubao-seedance-2-5-260628</code></td>
+      <td>2.5版</td>
+      <td>豆包 Seedance 2.5 视频生成模型</td>
     </tr>
   </tbody>
 </table>
@@ -359,17 +367,25 @@
 <h3>调用流程</h3>
 <p>视频生成采用异步任务模式，分两步完成：</p>
 <ol>
-  <li><strong>提交任务</strong>：调用 <code>POST /v1/videos/generations</code>，返回任务 ID（<code>output.task_id</code>）</li>
-  <li><strong>轮询结果</strong>：调用 <code>GET /v1/videos/generations/task/{taskId}</code> 查询状态</li>
+  <li><strong>提交任务</strong>：调用 <code>POST /v1/videos/generations</code>（或原生路径 <code>POST /api/v3/contents/generations/tasks</code>），返回任务 ID（<code>output.task_id</code>）</li>
+  <li><strong>轮询结果</strong>：调用 <code>GET /v1/videos/generations/task/{taskId}</code>（或原生路径 <code>GET /api/v3/contents/generations/tasks/{taskId}</code>）查询状态</li>
 </ol>
+<div class="callout note">
+  <strong>双路径兼容：</strong>网关同时支持 OpenAI 兼容路径 <code>/v1/videos/generations</code> 与火山方舟原生路径 <code>/api/v3/contents/generations/tasks</code>（查询同理），两条路径行为完全一致，可任选其一。
+</div>
 <p><strong>状态流转：</strong></p>
 <div class="flow-diagram">
+  <span class="step queued">queued</span>
+  <span class="arrow">→</span>
   <span class="step running">running</span>
   <span class="arrow">→</span>
   <span class="step success">succeeded</span>
   <span class="arrow" style="margin:0 4px;">/</span>
   <span class="step failed">failed</span>
 </div>
+<p style="text-align:center;color:var(--text-secondary);font-size:13px;margin-top:-4px;margin-bottom:0;">
+  queued 或 running 超过过期时间 → <span class="step expired" style="display:inline-block;padding:2px 10px;font-size:12px;border-radius:12px;">expired</span>
+</p>
 </section>
 
 <hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
@@ -379,6 +395,8 @@
 
 <h3 id="create-request">1.1 请求地址</h3>
 <pre><span class="lang-tag">HTTP</span><code>POST /v1/videos/generations</code></pre>
+<pre><span class="lang-tag">HTTP（火山原生路径）</span><code>POST /api/v3/contents/generations/tasks</code></pre>
+<p>两条路径行为完全一致，可任选其一。</p>
 
 <h3 id="create-headers">1.2 请求头</h3>
 <table>
@@ -423,7 +441,7 @@
       <td><code>model</code></td>
       <td>string</td>
       <td>是</td>
-      <td>模型名称：<code>doubao-seedance-2-0-260128</code> / <code>doubao-seedance-2-0-fast-260128</code> / <code>doubao-seedance-2-0-mini-260615</code> / <code>doubao-seedance-2-5-cloud</code></td>
+      <td>模型名称：<code>doubao-seedance-2-0-260128</code> / <code>doubao-seedance-2-0-fast-260128</code> / <code>doubao-seedance-2-0-mini-260615</code> / <code>doubao-seedance-2-5-260628</code></td>
     </tr>
     <tr>
       <td><code>content</code></td>
@@ -432,159 +450,235 @@
       <td>素材与提示词混合数组。最少 1 个元素，支持 text / image_url / video_url / audio_url 四种类型</td>
     </tr>
     <tr>
-      <td><code>generate_audio</code></td>
-      <td>bool</td>
+      <td><code>resolution</code></td>
+      <td>string</td>
       <td>否</td>
-      <td>自动生成配音。仅画面无需音频时传 <code>false</code>。默认 <code>true</code></td>
+      <td>分辨率，取值随模型不同：Seedance 2.5 支持 <code>480p</code> / <code>720p</code>；2.0 系列支持 <code>480p</code> / <code>720p</code> / <code>1080p</code> / <code>4k</code> 等。不传时由模型决定</td>
     </tr>
     <tr>
       <td><code>ratio</code></td>
       <td>string</td>
       <td>否</td>
-      <td>宽高比：<code>9:16</code> / <code>16:9</code> / <code>1:1</code>。默认 <code>16:9</code></td>
+      <td>宽高比：<code>16:9</code> / <code>4:3</code> / <code>1:1</code> / <code>3:4</code> / <code>9:16</code> / <code>21:9</code> / <code>adaptive</code>。Seedance 2.5 和 2.0 系列默认 <code>adaptive</code></td>
     </tr>
     <tr>
       <td><code>duration</code></td>
-      <td>int</td>
+      <td>integer</td>
       <td>否</td>
-      <td>生成视频总时长（秒）</td>
+      <td>生成视频时长（秒）。Seedance 2.5 取值范围 <code>[4,30]</code>，其余模型 <code>[4,15]</code>，或 <code>-1</code> 表示由模型智能选择时长</td>
+    </tr>
+    <tr>
+      <td><code>generate_audio</code></td>
+      <td>boolean</td>
+      <td>否</td>
+      <td>是否自动生成配音。默认 <code>true</code></td>
     </tr>
     <tr>
       <td><code>watermark</code></td>
-      <td>bool</td>
+      <td>boolean</td>
       <td>否</td>
       <td>是否添加平台水印。默认 <code>false</code></td>
     </tr>
+    <tr>
+      <td><code>seed</code></td>
+      <td>integer</td>
+      <td>否</td>
+      <td>种子整数，用于控制生成内容的随机性。<code>-1</code> 表示使用随机数替代</td>
+    </tr>
+    <tr>
+      <td><code>return_last_frame</code></td>
+      <td>boolean</td>
+      <td>否</td>
+      <td>是否返回最后一帧。为 <code>true</code> 时响应额外返回 <code>content.last_frame_url</code>（PNG），可用于视频续写。默认 <code>false</code></td>
+    </tr>
+    <tr>
+      <td><code>execution_expires_after</code></td>
+      <td>integer</td>
+      <td>否</td>
+      <td>任务过期时间（秒）。默认 <code>172800</code>（48 小时），取值范围 <code>[3600,259200]</code>；任务处于 queued/running 超过该时长后状态变为 <code>expired</code></td>
+    </tr>
+    <tr>
+      <td><code>tools</code></td>
+      <td>array[object]</td>
+      <td>否</td>
+      <td>工具列表，如 <code>[{"type":"web_search"}]</code></td>
+    </tr>
+    <tr>
+      <td><code>output_format</code></td>
+      <td>string</td>
+      <td>否</td>
+      <td>输出视频格式：<code>mp4</code>（默认）/ <code>mov</code></td>
+    </tr>
+    <tr>
+      <td><code>safety_identifier</code></td>
+      <td>string</td>
+      <td>否</td>
+      <td>内容安全标识，最长 64 字符</td>
+    </tr>
   </tbody>
 </table>
+
+<p><strong>ratio 字段说明：</strong></p>
+<ul>
+  <li>可选值：<code>16:9</code>、<code>4:3</code>、<code>1:1</code>、<code>3:4</code>、<code>9:16</code>、<code>21:9</code>、<code>adaptive</code>（根据任务类型和输入内容自动适配宽高比）</li>
+  <li>不同模型的取值限制和 adaptive 适配规则如下：</li>
+</ul>
+<table>
+  <thead>
+    <tr>
+      <th>任务类型</th>
+      <th>Seedance 2.5</th>
+      <th>Seedance 2.0 系列</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>文生视频</td>
+      <td>支持在可选宽高比中自行设置，或由模型根据 prompt 在可选宽高比中自动选择；支持 <code>adaptive</code> 或指定宽高比</td>
+      <td>支持在可选宽高比中自行设置，或由模型根据 prompt 在可选宽高比中自动选择；支持 <code>adaptive</code> 或指定宽高比</td>
+    </tr>
+    <tr>
+      <td>首帧或首尾帧生视频</td>
+      <td>自动保持输出视频和首帧图片的宽高比一致；默认且仅支持 <code>adaptive</code></td>
+      <td>支持在可选宽高比中自行设置，或由模型根据首帧图在可选宽高比中自动选择；支持 <code>adaptive</code> 或指定宽高比</td>
+    </tr>
+    <tr>
+      <td>全模态生视频 — 视频编辑 / 视频延长</td>
+      <td>自动保持输出视频和待编辑/待延长视频的宽高比一致，不支持另行设置；默认且仅支持 <code>adaptive</code></td>
+      <td>支持在可选宽高比中自行设置，或由模型根据待编辑/延长视频在可选宽高比中自动选择；支持 <code>adaptive</code> 或指定宽高比</td>
+    </tr>
+    <tr>
+      <td>全模态生视频 — 参考生视频</td>
+      <td>支持在可选宽高比中自行设置，或由模型根据 prompt 在可选宽高比中自动选择；支持 <code>adaptive</code> 或指定宽高比</td>
+      <td>支持在可选宽高比中自行设置，或由模型根据 prompt 在可选宽高比中自动选择；支持 <code>adaptive</code> 或指定宽高比</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>不同分辨率、宽高比对应的高宽像素值：</p>
+<table>
+  <thead>
+    <tr>
+      <th>分辨率</th>
+      <th>宽高比</th>
+      <th>Seedance 2.5</th>
+      <th>Seedance 2.0 系列</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>480p</td><td>16:9</td><td>854×480</td><td>864×496</td></tr>
+    <tr><td>480p</td><td>4:3</td><td>752×560</td><td>752×560</td></tr>
+    <tr><td>480p</td><td>1:1</td><td>640×640</td><td>640×640</td></tr>
+    <tr><td>480p</td><td>3:4</td><td>560×752</td><td>560×752</td></tr>
+    <tr><td>480p</td><td>9:16</td><td>480×854</td><td>496×864</td></tr>
+    <tr><td>480p</td><td>21:9</td><td>992×432</td><td>992×432</td></tr>
+    <tr><td>720p</td><td>16:9</td><td>1280×720</td><td>1280×720</td></tr>
+    <tr><td>720p</td><td>4:3</td><td>1112×834</td><td>1112×834</td></tr>
+    <tr><td>720p</td><td>1:1</td><td>960×960</td><td>960×960</td></tr>
+    <tr><td>720p</td><td>3:4</td><td>834×1112</td><td>834×1112</td></tr>
+    <tr><td>720p</td><td>9:16</td><td>720×1280</td><td>720×1280</td></tr>
+    <tr><td>720p</td><td>21:9</td><td>1470×630</td><td>1470×630</td></tr>
+    <tr><td>1080p（Seedance 2.5、2.0 fast/mini 暂不支持）</td><td>16:9</td><td>—</td><td>1920×1080</td></tr>
+    <tr><td>1080p</td><td>4:3</td><td>—</td><td>1664×1248</td></tr>
+    <tr><td>1080p</td><td>1:1</td><td>—</td><td>1440×1440</td></tr>
+    <tr><td>1080p</td><td>3:4</td><td>—</td><td>1248×1664</td></tr>
+    <tr><td>1080p</td><td>9:16</td><td>—</td><td>1080×1920</td></tr>
+    <tr><td>1080p</td><td>21:9</td><td>—</td><td>2206×946</td></tr>
+    <tr><td>4k（仅 Seedance 2.0 支持）</td><td>16:9</td><td>—</td><td>3840×2160</td></tr>
+    <tr><td>4k</td><td>4:3</td><td>—</td><td>3326×2494</td></tr>
+    <tr><td>4k</td><td>1:1</td><td>—</td><td>2880×2880</td></tr>
+    <tr><td>4k</td><td>3:4</td><td>—</td><td>2494×3326</td></tr>
+    <tr><td>4k</td><td>9:16</td><td>—</td><td>2160×3840</td></tr>
+    <tr><td>4k</td><td>21:9</td><td>—</td><td>4398×1886</td></tr>
+  </tbody>
+</table>
+
+<p><strong>duration 字段说明：</strong></p>
+<ul>
+  <li>Seedance 2.5：默认值 <code>-1</code>；取值范围 <code>[4, 30]</code>；或设置为 <code>-1</code>（智能选择）</li>
+  <li>Seedance 2.0 系列：取值范围 <code>[4, 15]</code>；或设置为 <code>-1</code>（智能选择）</li>
+</ul>
+
+<p><strong>resolution 字段说明：</strong></p>
+<ul>
+  <li>Seedance 2.5：默认值 <code>720p</code>；可选值 <code>480p</code>、<code>720p</code></li>
+  <li>Seedance 2.0：默认值 <code>720p</code>；可选值 <code>480p</code>、<code>720p</code>、<code>1080p</code>、<code>4k</code></li>
+  <li>Seedance 2.0 fast：默认值 <code>720p</code>；可选值 <code>480p</code>、<code>720p</code></li>
+  <li>Seedance 2.0 mini：默认值 <code>720p</code>；可选值 <code>480p</code>、<code>720p</code></li>
+</ul>
 
 <h4>content 元素类型</h4>
-
-<h4>1. 文本提示词 (type = text)</h4>
+<p>每个元素通过 <code>type</code> 指定类型：</p>
 <table>
   <thead>
     <tr>
-      <th>参数名</th>
-      <th>类型</th>
-      <th>必填</th>
+      <th><code>type</code></th>
+      <th>必填子字段</th>
       <th>说明</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td><code>type</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td><code>text</code></td>
-    </tr>
-    <tr>
-      <td><code>text</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td>分镜文案。用 <code>[Image N]</code> / <code>[Video N]</code> / <code>[Audio N]</code> 引用素材</td>
-    </tr>
+    <tr><td><code>text</code></td><td><code>text</code></td><td>文本提示词。多段 text 会按换行拼接</td></tr>
+    <tr><td><code>image_url</code></td><td><code>image_url.url</code></td><td>图片 URL</td></tr>
+    <tr><td><code>video_url</code></td><td><code>video_url.url</code></td><td>参考视频 URL</td></tr>
+    <tr><td><code>audio_url</code></td><td><code>audio_url.url</code></td><td>参考音频 URL</td></tr>
   </tbody>
 </table>
-
-<h4>2. 参考图片 (type = image_url)</h4>
+<p>可选字段 <code>role</code>（素材角色）：</p>
 <table>
   <thead>
     <tr>
-      <th>参数名</th>
-      <th>类型</th>
-      <th>必填</th>
+      <th><code>role</code></th>
+      <th>适用 type</th>
       <th>说明</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td><code>type</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td><code>image_url</code></td>
-    </tr>
-    <tr>
-      <td><code>image_url.url</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td>图片 URL（HTTP/HTTPS 或 Base64）</td>
-    </tr>
-    <tr>
-      <td><code>role</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td><code>reference_image</code></td>
-    </tr>
+    <tr><td><code>first_frame</code></td><td><code>image_url</code></td><td>首帧</td></tr>
+    <tr><td><code>last_frame</code></td><td><code>image_url</code></td><td>尾帧</td></tr>
+    <tr><td><code>reference_image</code></td><td><code>image_url</code></td><td>参考图（默认）</td></tr>
+    <tr><td><code>reference_video</code></td><td><code>video_url</code></td><td>参考视频（默认）</td></tr>
+    <tr><td><code>reference_audio</code></td><td><code>audio_url</code></td><td>参考音频（默认）</td></tr>
   </tbody>
 </table>
-
-<h4>3. 参考视频 (type = video_url)</h4>
+<p>content 组合示例：</p>
+<ul>
+  <li>文生视频：<code>text</code></li>
+  <li>图生视频：<code>text</code>（可选）+ <code>image_url</code></li>
+  <li>多模态参考：<code>text</code>（可选）+ <code>image_url</code> / <code>video_url</code> / <code>audio_url</code> 组合</li>
+</ul>
+<h4>模型能力</h4>
+<p>各模型系列支持的生成模式与素材上限如下（每种模式均生成 1 个目标视频）。</p>
+<p><strong>Doubao Seedance 2.5</strong>（有声视频 / 无声视频）</p>
 <table>
   <thead>
     <tr>
-      <th>参数名</th>
-      <th>类型</th>
-      <th>必填</th>
-      <th>说明</th>
+      <th>生成模式</th>
+      <th>输入与说明</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td><code>type</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td><code>video_url</code></td>
-    </tr>
-    <tr>
-      <td><code>video_url.url</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td>公网可访问 MP4 视频链接</td>
-    </tr>
-    <tr>
-      <td><code>role</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td><code>reference_video</code></td>
-    </tr>
+    <tr><td>全模态参考生视频</td><td>参考图片（0–30 张）+ 参考视频（0–10 个）+ 参考音频（0–10 个）+ 文本提示词（可选）。支持仅传入音频；支持生成全新视频、编辑视频、延长视频；支持 30 秒视频连贯直出</td></tr>
+    <tr><td>图生视频-首尾帧</td><td>首帧图片 + 尾帧图片 + 文本提示词（可选）</td></tr>
+    <tr><td>图生视频-首帧</td><td>首帧图片 + 文本提示词（可选）</td></tr>
+    <tr><td>文生视频</td><td>文本提示词</td></tr>
   </tbody>
 </table>
-
-<h4>4. 参考音频 (type = audio_url)</h4>
+<p><strong>Doubao Seedance 2.0 系列</strong>（有声视频 / 无声视频）</p>
 <table>
   <thead>
     <tr>
-      <th>参数名</th>
-      <th>类型</th>
-      <th>必填</th>
-      <th>说明</th>
+      <th>生成模式</th>
+      <th>输入与说明</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td><code>type</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td><code>audio_url</code></td>
-    </tr>
-    <tr>
-      <td><code>audio_url.url</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td>公网可访问 MP3 音频链接</td>
-    </tr>
-    <tr>
-      <td><code>role</code></td>
-      <td>string</td>
-      <td>是</td>
-      <td><code>reference_audio</code></td>
-    </tr>
+    <tr><td>全模态参考生视频</td><td>参考图片（0–9 张）+ 参考视频（0–3 个）+ 参考音频（0–3 个）+ 文本提示词（可选）。注意不可单独输入音频，应至少包含 1 个参考视频或图片；支持生成全新视频、编辑视频、延长视频</td></tr>
+    <tr><td>图生视频-首尾帧</td><td>首帧图片 + 尾帧图片 + 文本提示词（可选）</td></tr>
+    <tr><td>图生视频-首帧</td><td>首帧图片 + 文本提示词（可选）</td></tr>
+    <tr><td>文生视频</td><td>文本提示词</td></tr>
   </tbody>
 </table>
-
-<div class="callout note">
-  <strong>约束说明：</strong>参考图片最多 9 张 · 参考视频最多 1 个 · 参考音频最多 1 个 · 纯文生视频仅需 1 个 <code>type: "text"</code> 元素
-</div>
 </section>
 
 <section id="create-examples">
@@ -605,81 +699,195 @@
   "watermark": false
 }</code></pre>
 
-<h4>样例2：单参考图片</h4>
+<h4>样例2：图生视频-base64编码</h4>
 <pre><span class="lang-tag">JSON</span><code>{
-  "model": "doubao-seedance-2-0-fast-260128",
-  "content": [
-    {
-      "type": "text",
-      "text": "[Image 1]古风少女站在桃花树下，镜头环绕人物旋转，花瓣随风飘落，柔光古风画质"
-    },
-    {
-      "type": "image_url",
-      "image_url": { "url": "https://example.com/girl-portrait.jpg" },
-      "role": "reference_image"
-    }
-  ],
-  "duration": 5,
-  "ratio": "9:16",
-  "watermark": false
+    "model": "doubao-seedance-1-0-lite-i2v-250428",
+    "content": [
+        {
+            "type": "text",
+            "text": "女孩抱着狐狸，女孩睁开眼，温柔地看向镜头，狐狸友善地抱着，镜头缓缓拉出，女孩的头发被风吹动"
+        },
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "data:image/png;base64,aHR0******cG5n"
+            }
+        }
+    ],
+    "ratio": "adaptive",
+    "duration": 5,
+    "watermark": false
 }</code></pre>
 
-<h4>样例3：多素材组合（完整参数）</h4>
+<h4>样例3：有声视频-首尾帧</h4>
 <pre><span class="lang-tag">JSON</span><code>{
-  "model": "doubao-seedance-2-0-260128",
-  "content": [
-    {
-      "type": "text",
-      "text": "[Image 1]里的白色小猫趴在[Image 2]木质窗台，窗外是[Image 3]春日花海，镜头缓缓向前推进，配合音频1作为背景音乐"
-    },
-    {
-      "type": "image_url",
-      "image_url": { "url": "https://example.com/cat.jpg" },
-      "role": "reference_image"
-    },
-    {
-      "type": "image_url",
-      "image_url": { "url": "https://example.com/windowsill.jpg" },
-      "role": "reference_image"
-    },
-    {
-      "type": "image_url",
-      "image_url": { "url": "https://example.com/flower.jpg" },
-      "role": "reference_image"
-    },
-    {
-      "type": "video_url",
-      "video_url": { "url": "https://example.com/reference.mp4" },
-      "role": "reference_video"
-    },
-    {
-      "type": "audio_url",
-      "audio_url": { "url": "https://example.com/background.mp3" },
-      "role": "reference_audio"
-    }
-  ],
-  "duration": 7,
-  "ratio": "16:9",
-  "generate_audio": true,
-  "watermark": false
+    "model": "doubao-seedance-1-5-pro-251215",
+    "content": [
+        {
+            "type": "text",
+            "text": "图中女孩对着镜头说"茄子"，360度环绕运镜"
+        },
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_first_frame.jpeg"
+            },
+            "role": "first_frame"
+        },
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_last_frame.jpeg"
+            },
+            "role": "last_frame"
+        }
+    ],
+    "generate_audio": true,
+    "ratio": "adaptive",
+    "duration": 5,
+    "watermark": false
 }</code></pre>
 
-<h4>样例4：Base64 图片输入</h4>
+<h4>样例4：有声视频-首帧</h4>
 <pre><span class="lang-tag">JSON</span><code>{
-  "model": "doubao-seedance-2-0-mini-260615",
-  "content": [
-    {
-      "type": "text",
-      "text": "[Image 1]海边落日，海面波光流动，氛围感电影色调"
-    },
-    {
-      "type": "image_url",
-      "image_url": { "url": "data:image/jpeg;base64,/9j/4AAQSkZJRg..." },
-      "role": "reference_image"
-    }
-  ],
-  "duration": 5,
-  "ratio": "16:9"
+    "model": "doubao-seedance-1-5-pro-251215",
+    "content": [
+        {
+            "type": "text",
+            "text": "女孩抱着狐狸，女孩睁开眼，温柔地看向镜头，狐狸友善地抱着，镜头缓缓拉出，女孩的头发被风吹动，可以听到风声"
+        },
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/i2v_foxrgirl.png"
+            }
+        }
+    ],
+    "generate_audio": true,
+    "ratio": "adaptive",
+    "duration": 5,
+    "watermark": false
+}</code></pre>
+
+<h4>样例5：延长视频</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+    "model": "doubao-seedance-2-5-260628",
+    "content": [
+        {
+            "type": "text",
+            "text": "延长@视频1，窗户打开后进入@视频2的美术馆室内，最后镜头进入@视频3的画内"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/videos/video-generation/r2v_extend_video1_75.mov"
+            },
+            "role": "reference_video"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://ark-project.tos-cn-beijing.volces.com/doc_video/r2v_extend_video2.mp4"
+            },
+            "role": "reference_video"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://ark-project.tos-cn-beijing.volces.com/doc_video/r2v_extend_video3.mp4"
+            },
+            "role": "reference_video"
+        }
+    ],
+    "generate_audio": true,
+    "ratio": "adaptive",
+    "duration": 11,
+    "output_format": "mov"
+}</code></pre>
+
+<h4>样例6：编辑视频</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+    "model": "doubao-seedance-2-5-260628",
+    "content": [
+        {
+            "type": "text",
+            "text": "视频编辑：删除 @视频1中的所有人，除了主角。"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/videos/video-generation/seedance2.5_edit_input.mov"
+            },
+            "role": "reference_video"
+        }
+    ],
+    "generate_audio": true,
+    "ratio": "adaptive",
+    "duration": -1,
+    "output_format": "mov"
+}</code></pre>
+
+<h4>样例7：多模态参考</h4>
+<pre><span class="lang-tag">JSON</span><code>{
+    "model": "doubao-seedance-2-5-260628",
+    "content": [
+        {
+            "type": "text",
+            "text": "明亮多彩的广告片风格，果味饼干为主角，包含草莓、苹果、葡萄、橙子四种口味，草莓味参考@图像1，饼干与对应水果以强秩序感的几何阵列排布，整体画面干净、高级、节奏强。开场水果快速建立视觉聚焦，参考@视频1的构图，音乐重拍切入。随后不同口味饼干整齐排列，切特写，参考@视频2的动态和运镜。高潮段一块饼干被折断，瞬间进入慢动作，果味夹心爆开，碎屑飞溅，果汁感与颗粒冲击被放大展示，参考@视频3的冲击感。横向阵列，形成节奏抛物感，参考@视频4的运动，突出秩序美感与产品丰富度。随后迅速回到快节奏剪辑。结尾英文文字 One bite of crispness, a heart full of delight 快速分词切换入画，配合强节奏文字运动与产品定格，参考@视频5，最终品牌感收束，饼干和水果向四周发散，参考@视频6画面充满年轻、活力、好吃、想分享的广告氛围。"
+        },
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/images/video-generation/seedance2.5_reference1.png"
+            },
+            "role": "reference_image"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/videos/video-generation/seedance2.5_reference2.mp4"
+            },
+            "role": "reference_video"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/videos/video-generation/seedance2.5_reference3.mp4"
+            },
+            "role": "reference_video"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/videos/video-generation/seedance2.5_reference4.mp4"
+            },
+            "role": "reference_video"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/videos/video-generation/seedance2.5_reference5.mp4"
+            },
+            "role": "reference_video"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/videos/video-generation/seedance2.5_reference6.mp4"
+            },
+            "role": "reference_video"
+        },
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "https://arkdocs.tos-cn-beijing.volces.com/videos/video-generation/seedance2.5_reference7.mp4"
+            },
+            "role": "reference_video"
+        }
+    ],
+    "generate_audio": true,
+    "ratio": "16:9",
+    "duration": 15
 }</code></pre>
 </section>
 
@@ -707,12 +915,7 @@
     <tr>
       <td><code>output.task_status</code></td>
       <td>string</td>
-      <td>固定返回 <code>PENDING</code></td>
-    </tr>
-    <tr>
-      <td><code>request_id</code></td>
-      <td>string</td>
-      <td>请求唯一标识</td>
+      <td>固定返回 <code>queued</code></td>
     </tr>
     <tr>
       <td><code>model</code></td>
@@ -726,9 +929,8 @@
 <pre><span class="lang-tag">JSON</span><code>{
   "output": {
     "task_id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx",
-    "task_status": "PENDING"
+    "task_status": "queued"
   },
-  "request_id": "81df29ac-173b-4021-a69f-xxxxxxxxxxxx",
   "model": "doubao-seedance-2-0-260128"
 }</code></pre>
 </section>
@@ -740,6 +942,8 @@
 
 <h3>2.1 请求地址</h3>
 <pre><span class="lang-tag">HTTP</span><code>GET /v1/videos/generations/task/{taskId}</code></pre>
+<pre><span class="lang-tag">HTTP（火山原生路径）</span><code>GET /api/v3/contents/generations/tasks/{taskId}</code></pre>
+<p>两条路径行为完全一致，<code>{taskId}</code> 为提交任务返回的加密任务标识。</p>
 
 <h3 id="query-params">2.2 路径参数</h3>
 <table>
@@ -761,6 +965,8 @@
 
 <h3>2.3 请求示例</h3>
 <pre><span class="lang-tag">HTTP</span><code>GET /v1/videos/generations/task/a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx
+Authorization: Bearer &lt;your-api-key&gt;</code></pre>
+<pre><span class="lang-tag">HTTP（火山原生路径）</span><code>GET /api/v3/contents/generations/tasks/a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx
 Authorization: Bearer &lt;your-api-key&gt;</code></pre>
 
 <h3 id="query-response">2.4 响应参数</h3>
@@ -786,7 +992,7 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
     <tr>
       <td><code>status</code></td>
       <td>string</td>
-      <td><code>running</code> / <code>succeeded</code> / <code>failed</code></td>
+      <td>任务状态：<code>queued</code>（排队中） / <code>running</code>（运行中） / <code>succeeded</code>（成功） / <code>failed</code>（失败） / <code>expired</code>（超时）</td>
     </tr>
     <tr>
       <td><code>model</code></td>
@@ -839,6 +1045,31 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
       <td>更新时间（Unix 时间戳）</td>
     </tr>
     <tr>
+      <td><code>draft</code></td>
+      <td>bool</td>
+      <td>是否为草稿</td>
+    </tr>
+    <tr>
+      <td><code>generate_audio</code></td>
+      <td>bool</td>
+      <td>是否已生成配音</td>
+    </tr>
+    <tr>
+      <td><code>output_format</code></td>
+      <td>string</td>
+      <td>输出格式，如 <code>mp4</code></td>
+    </tr>
+    <tr>
+      <td><code>priority</code></td>
+      <td>int</td>
+      <td>任务优先级</td>
+    </tr>
+    <tr>
+      <td><code>service_tier</code></td>
+      <td>string</td>
+      <td>服务档级，如 <code>default</code></td>
+    </tr>
+    <tr>
       <td><code>usage.completion_tokens</code></td>
       <td>int</td>
       <td>生成 Token 数</td>
@@ -850,8 +1081,13 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
     </tr>
     <tr>
       <td><code>usage.SR</code></td>
-      <td>int / string</td>
-      <td>分辨率档位（如 720 或 <code>720p</code>）</td>
+      <td>string</td>
+      <td>分辨率档位，如 <code>480p</code> / <code>720p</code> / <code>1080p</code></td>
+    </tr>
+    <tr>
+      <td><code>usage.audio</code></td>
+      <td>bool</td>
+      <td>是否包含音频</td>
     </tr>
     <tr>
       <td><code>usage.duration</code></td>
@@ -870,48 +1106,34 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
 
 <h4>生成成功（succeeded）</h4>
 <pre><span class="lang-tag">JSON</span><code>{
-  "id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx",
   "content": {
-    "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-0/xxxxxxxx.mp4?X-Tos-Algorithm=..."
+    "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2100583678/Video/9z8zk-24732211806202-tgc_d2046fbd1081caffff00000000000000000000249260954687120/cgt-20260811223742-kz8z9.mp4?X-Tos-Algorithm=TOS4-HMAC-SHA256&amp;X-Tos-Credential=AKLTYWJkZTExNjA1ZDUyNDc3YzhjNTM5OGIyNjBhNDcyOTQ%2F20260811%2Fcn-beijing%2Ftos%2Frequest&amp;X-Tos-Date=20260811T144155Z&amp;X-Tos-Expires=86400&amp;X-Tos-Max-Requests=100&amp;X-Tos-Signature=f5cbee8bb726296bef4ad7a408f4580eeeff85b4737c9b0aef6644b8eb011cc0&amp;X-Tos-SignedHeaders=host"
   },
-  "created_at": 1782891873,
-  "duration": 5,
+  "created_at": 1786459062,
+  "draft": false,
+  "duration": 4,
   "execution_expires_after": 172800,
   "framespersecond": 24,
-  "model": "doubao-seedance-2-0-260128",
+  "generate_audio": true,
+  "id": "OtvM48wxQz0hfj5dOyASrrvgjAfICPuFCNPlzLuL6qqSf36J3rVHipyhf4KUWkflVJqFgjtzODbDoAeZkiKPflc075qyWPyIgT8k7MMBAiJggxKFtVNp3zdoORTJkfAo",
+  "model": "doubao-seedance-2-5-260628",
+  "output_format": "mp4",
+  "priority": 0,
   "ratio": "16:9",
-  "resolution": "720p",
-  "seed": 14227,
+  "resolution": "480p",
+  "seed": 10228,
+  "service_tier": "default",
   "status": "succeeded",
-  "updated_at": 1782892090,
+  "updated_at": 1786459320,
   "usage": {
-    "SR": "720p",
-    "completion_tokens": 108900,
-    "duration": 5,
-    "ratio": "16:9",
-    "total_tokens": 108900
+    "completion_tokens": 38830,
+    "total_tokens": 38830,
+    "SR": "480p",
+    "audio": true,
+    "duration": 4,
+    "ratio": "16:9"
   },
-  "task_id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx"
-}</code></pre>
-
-<h4>处理中（running）</h4>
-<pre><span class="lang-tag">JSON</span><code>{
-  "id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx",
-  "model": "doubao-seedance-2-0-260128",
-  "status": "running",
-  "created_at": 1782891873,
-  "updated_at": 1782891873,
-  "task_id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx"
-}</code></pre>
-
-<h4>生成失败（failed）</h4>
-<pre><span class="lang-tag">JSON</span><code>{
-  "id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx",
-  "model": "doubao-seedance-2-0-260128",
-  "status": "failed",
-  "created_at": 1782891873,
-  "updated_at": 1782892090,
-  "task_id": "a72f41c9-12b3-4e5f-8d9c-xxxxxxxxxxxx"
+  "task_id": "OtvM48wxQz0hfj5dOyASrrvgjAfICPuFCNPlzLuL6qqSf36J3rVHipyhf4KUWkflVJqFgjtzODbDoAeZkiKPflc075qyWPyIgT8k7MMBAiJggxKFtVNp3zdoORTJkfAo"
 }</code></pre>
 </section>
 
@@ -946,6 +1168,8 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
     <tr><td><code>GetAsset</code></td><td>查询单个素材</td><td>五.3</td></tr>
     <tr><td><code>UpdateAsset</code></td><td>更新素材</td><td>五.4</td></tr>
     <tr><td><code>DeleteAsset</code></td><td>删除素材</td><td>五.5</td></tr>
+    <tr><td><code>CreateVisualValidateSession</code></td><td>创建可视化校验会话（真人认证）</td><td>六.1</td></tr>
+    <tr><td><code>GetVisualValidateResult</code></td><td>查询可视化校验结果</td><td>六.2</td></tr>
   </tbody>
 </table>
 <div class="callout warning"><strong>私有隔离：</strong>所有查询/更新/删除带 key 归属过滤，只能操作自己 key 下的组与素材。越权访问或资源不存在统一返回 404（不区分两者）。</div>
@@ -962,7 +1186,7 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
   <tbody>
     <tr><td><code>Name</code></td><td>string</td><td>是</td><td>组名（可中文，同 key 下唯一，跨 key 隔离）</td></tr>
     <tr><td><code>Description</code></td><td>string</td><td>否</td><td>组描述</td></tr>
-    <tr><td><code>GroupType</code></td><td>string</td><td>否</td><td>组类型，如 <code>AIGC</code></td></tr>
+    <tr><td><code>GroupType</code></td><td>string</td><td>否</td><td>组类型，仅支持 <code>AIGC</code>（默认 <code>AIGC</code>）。<code>LivenessFace</code> 类型组需通过 <a href="#visual-validate-create">CreateVisualValidateSession</a> 创建，不可通过本接口创建</td></tr>
   </tbody>
 </table>
 <pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=CreateAssetGroup&amp;Version=2024-01-01" \
@@ -980,6 +1204,7 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
   <tbody>
     <tr><td><code>Filter.Name</code></td><td>string</td><td>否</td><td>按组名过滤（模糊匹配，匹配 Name 包含该值的组）</td></tr>
     <tr><td><code>Filter.GroupIds</code></td><td>string[]</td><td>否</td><td>按组 Id 列表过滤</td></tr>
+    <tr><td><code>Filter.GroupType</code></td><td>string</td><td>否</td><td>按组类型过滤，枚举值：<code>AIGC</code> / <code>LivenessFace</code>。不传时默认排除真人组（仅 AIGC 视图）；传 <code>LivenessFace</code> 只返回已认证完成（active）的真人组</td></tr>
     <tr><td><code>PageNumber</code></td><td>int</td><td>否</td><td>页码，默认 1</td></tr>
     <tr><td><code>PageSize</code></td><td>int</td><td>否</td><td>每页条数，默认 10</td></tr>
   </tbody>
@@ -1103,6 +1328,7 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
   <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
   <tbody>
     <tr><td><code>Filter.GroupIds</code></td><td>string[]</td><td>否</td><td>按组 Id 列表过滤</td></tr>
+    <tr><td><code>Filter.GroupType</code></td><td>string</td><td>否</td><td>按组类型过滤，枚举值：<code>AIGC</code> / <code>LivenessFace</code>。不传时默认排除真人组素材（仅 AIGC 视图）</td></tr>
     <tr><td><code>PageNumber</code></td><td>int</td><td>否</td><td>页码，默认 1</td></tr>
     <tr><td><code>PageSize</code></td><td>int</td><td>否</td><td>每页条数，默认 10</td></tr>
   </tbody>
@@ -1170,9 +1396,7 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
   "GroupId": "187507198107058200",
   "AssetType": "Image",
   "Status": "Active",
-  "URL": "https://...",
-  "CreateTime": "2026-07-10T08:00:00Z",
-  "UpdateTime": "2026-07-10T08:00:00Z"
+  "URL": "https://..."
 }</code></pre>
 
 <h3 id="asset-delete">5.5 DeleteAsset — 删除素材</h3>
@@ -1198,11 +1422,72 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
 
 <hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
 
-<section id="asset-ref">
-<h2>六、视频生成中的 asset:// 引用</h2>
-<p>视频生成接口 <code>POST /v1/videos/generations</code> 的 <code>content</code> 数组里，可用 <code>asset://&lt;Id&gt;</code> 引用已创建的素材替代公网 URL。网关在转发上游前自动校验所有 <code>asset://</code> 引用是否归属当前 Authorization key，<strong>不属于则 fail-closed 返回 403</strong>。</p>
+<section id="visual-validate">
+<h2>六、视觉校验（VisualValidate）</h2>
+<p>视觉校验用于真人活体认证。调用 <code>CreateVisualValidateSession</code> 创建认证会话，上游返回 <code>BytedToken</code>；用户在 H5 页面完成认证后，网关定时轮询 <code>GetVisualValidateResult</code>，认证成功后回填 <code>GroupId</code> 并将组转为 <code>active</code>。认证完成的真人组（<code>GroupType=LivenessFace</code>）可在 <code>ListAssetGroups</code> 中通过 <code>Filter.GroupType=LivenessFace</code> 查询。</p>
 
-<h3>6.1 三种引用写法</h3>
+<div class="callout note">
+  <strong>与 AIGC 组的区别：</strong>真人组（<code>LivenessFace</code>）<strong>不能</strong>通过 <code>CreateAssetGroup</code> 创建，只能通过 <code>CreateVisualValidateSession</code> 创建；其生命周期由认证状态驱动（pending -&gt; active / failed），而非 Create 即 active。
+</div>
+
+<h3 id="visual-validate-create">6.1 CreateVisualValidateSession - 创建可视化校验会话</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>CallbackURL</code></td><td>string</td><td>是</td><td>认证结果回调 URL</td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=CreateVisualValidateSession&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"CallbackURL":"https://example.com/callback"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "ResponseMetadata": {
+    "Action": "CreateVisualValidateSession",
+    "Region": "cn-beijing",
+    "RequestId": "20260811151901191F12565842363DCE4D",
+    "Service": "ark",
+    "Version": "2024-01-01"
+  },
+  "Result": {
+    "BytedToken": "202608111519011904A1CECB71B3B798C0",
+    "CallbackURL": "https://example.com/callback",
+    "H5Link": "https://ark.volcengine.com/region:cn-beijing/mobile/livenees-face-manage/authorization?pl=&lt;token&gt;&amp;uid=&lt;uid&gt;"
+  }
+}</code></pre>
+
+<h3 id="visual-validate-get">6.2 GetVisualValidateResult - 查询可视化校验结果</h3>
+<table>
+  <thead><tr><th>请求字段</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>BytedToken</code></td><td>string</td><td>是</td><td>创建会话时返回的 <code>BytedToken</code></td></tr>
+  </tbody>
+</table>
+<pre><span class="lang-tag">Bash</span><code>curl -X POST "http://&lt;gateway-host&gt;/v1/api/asset?Action=GetVisualValidateResult&amp;Version=2024-01-01" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;your-api-key&gt;" \
+  -d '{"BytedToken":"t-xxxxxxxxxxxxxxxxxxxx"}'</code></pre>
+<pre><span class="lang-tag">JSON</span><code>{
+  "ResponseMetadata": {
+    "Action": "GetVisualValidateResult",
+    "Region": "cn-beijing",
+    "RequestId": "2026081116104914FE6115A8A9CFD08C2C2C",
+    "Service": "ark",
+    "Version": "2024-01-01"
+  },
+  "Result": {
+    "GroupId": "group-20260811161038-fdjdf"
+  }
+}</code></pre>
+</section>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
+
+<section id="asset-ref">
+<h2>七、视频生成中的 asset:// 引用</h2>
+<p>视频生成接口 <code>POST /v1/videos/generations</code>（或原生路径 <code>POST /api/v3/contents/generations/tasks</code>）的 <code>content</code> 数组里，可用 <code>asset://&lt;Id&gt;</code> 引用已创建的素材替代公网 URL。网关在转发上游前自动校验所有 <code>asset://</code> 引用是否归属当前 Authorization key，<strong>不属于则 fail-closed 返回 403</strong>。</p>
+
+<h3>7.1 三种引用写法</h3>
 <pre><span class="lang-tag">JSON</span><code>// 图片引用（role: reference_image / first_frame / last_frame）
 {"type":"image_url","role":"reference_image","image_url":{"url":"asset://182533555060998168"}}
 
@@ -1212,7 +1497,7 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
 // 音频引用（role: reference_audio）
 {"type":"audio_url","role":"reference_audio","audio_url":{"url":"asset://&lt;Id&gt;"}}</code></pre>
 
-<h3>6.2 归属校验行为</h3>
+<h3>7.2 归属校验行为</h3>
 <table>
   <thead><tr><th>场景</th><th>结果</th></tr></thead>
   <tbody>
@@ -1224,7 +1509,7 @@ Authorization: Bearer &lt;your-api-key&gt;</code></pre>
   </tbody>
 </table>
 
-<h3>6.3 端到端示例（建组 → 建素材 → 轮询 Active → 视频生成）</h3>
+<h3>7.3 端到端示例（建组 → 建素材 → 轮询 Active → 视频生成）</h3>
 <pre><span class="lang-tag">Bash</span><code>GATEWAY="http://&lt;gateway-host&gt;"
 API_KEY="&lt;your-api-key&gt;"
 
@@ -1254,7 +1539,7 @@ done
 # 4. 提交视频生成任务，用 asset:// 引用素材
 TASK_ID=$(curl -s -X POST "${GATEWAY}/v1/videos/generations" \
   -H "Content-Type: application/json" -H "Authorization: Bearer ${API_KEY}" \
-  -d "{\"model\":\"doubao-seedance-2-0-260128\",\"content\":[{\"type\":\"text\",\"text\":\"[Image 1] 一只猫在花园里奔跑\"},{\"type\":\"image_url\",\"role\":\"reference_image\",\"image_url\":{\"url\":\"asset://${ASSET_ID}\"}}],\"duration\":5}" \
+  -d "{\"model\":\"doubao-seedance-2-0-260128\",\"content\":[{\"type\":\"text\",\"text\":\"图片1 一只猫在花园里奔跑\"},{\"type\":\"image_url\",\"role\":\"reference_image\",\"image_url\":{\"url\":\"asset://${ASSET_ID}\"}}],\"duration\":5}" \
   | jq -r '.output.task_id')
 echo "任务 ID: ${TASK_ID}"
 
@@ -1278,7 +1563,7 @@ done</code></pre>
 <hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
 
 <section id="errors">
-<h2>七、错误响应</h2>
+<h2>八、错误响应</h2>
 
 <p>错误响应统一为 OpenAI 兼容格式 <code>{"error":{"message","type","code"}}</code>；部分场景也会返回火山风格 <code>{"code","message","request_id"}</code>。示例如下：</p>
 <pre><span class="lang-tag">JSON</span><code>{
@@ -1303,7 +1588,7 @@ done</code></pre>
   "request_id": "7438d53d-6eb8-4596-8835-xxxxxxxxxxxx"
 }</code></pre>
 
-<h3>7.1 素材接口错误</h3>
+<h3>8.1 素材接口错误</h3>
 <table>
   <thead><tr><th>HTTP</th><th>示例 body</th></tr></thead>
   <tbody>
@@ -1318,9 +1603,10 @@ done</code></pre>
 <hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
 
 <section id="code-examples">
-<h2>八、代码示例</h2>
+<h2>九、代码示例</h2>
+<div class="callout note">以下示例统一使用 <code>/v1/*</code> 兼容路径；两条路径行为一致，将示例中的 <code>/v1/videos/generations</code> 替换为 <code>/api/v3/contents/generations/tasks</code>、<code>/v1/videos/generations/task/{id}</code> 替换为 <code>/api/v3/contents/generations/tasks/{id}</code> 即可改用火山原生路径。</div>
 
-<h3>8.1 cURL</h3>
+<h3>9.1 cURL</h3>
 <pre><span class="lang-tag">Bash</span><code># 1. 提交 Seedance 视频生成任务
 TASK_ID=$(curl -s -X POST http://&lt;gateway-host&gt;/v1/videos/generations \
   -H "Content-Type: application/json" \
@@ -1359,7 +1645,7 @@ while true; do
   fi
 done</code></pre>
 
-<h3>8.2 Python — requests</h3>
+<h3>9.2 Python — requests</h3>
 <pre><span class="lang-tag">Python</span><code>import requests
 import time
 
@@ -1377,7 +1663,7 @@ payload = {
     "content": [
         {
             "type": "text",
-            "text": "[Image 1]海边落日，海面波光流动，氛围感电影色调"
+            "text": "图片1海边落日，海面波光流动，氛围感电影色调"
         },
         {
             "type": "image_url",
@@ -1416,7 +1702,7 @@ while True:
         print("任务失败")
         break</code></pre>
 
-<h3>8.3 Java — OkHttp</h3>
+<h3>9.3 Java — OkHttp</h3>
 <pre><span class="lang-tag">Java</span><code>import okhttp3.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -1483,7 +1769,7 @@ public class SeedanceVideoExample {
     }
 }</code></pre>
 
-<h3>8.4 Python — 端到端（素材库 + 视频生成）</h3>
+<h3>9.4 Python — 端到端（素材库 + 视频生成）</h3>
 <pre><span class="lang-tag">Python</span><code>import requests, time
 
 GATEWAY = "http://&lt;gateway-host&gt;"
@@ -1517,7 +1803,7 @@ while True:
 resp = requests.post(f"{GATEWAY}/v1/videos/generations", headers=H, json={
     "model": "doubao-seedance-2-0-260128",
     "content": [
-        {"type": "text", "text": "[Image 1] 一只猫在花园里奔跑"},
+        {"type": "text", "text": "图片1 一只猫在花园里奔跑"},
         {"type": "image_url", "role": "reference_image",
          "image_url": {"url": f"asset://{asset_id}"}}
     ],
@@ -1541,7 +1827,7 @@ while True:
 <hr style="margin:40px 0;border:none;border-top:1px solid var(--border);">
 
 <section id="notes">
-<h2>九、注意事项</h2>
+<h2>十、注意事项</h2>
 
 <div class="callout warning">
   <strong>有效期限制：</strong><code>task_id</code> 及视频下载 URL 有效期为 24 小时，请及时下载。
@@ -1556,7 +1842,7 @@ while True:
 </div>
 
 <div class="callout tip">
-  <strong>素材引用规则：</strong>在 <code>type: "text"</code> 中，按 <code>content</code> 数组顺序从 1 开始编号，使用 <code>[Image N]</code> / <code>[Video N]</code> / <code>[Audio N]</code> 引用对应素材。
+  <strong>素材引用规则：</strong>在 <code>type: "text"</code> 中，按 <code>content</code> 数组顺序从 1 开始编号，使用 <code>图片N</code> / <code>视频N</code> / <code>音频N</code> 引用对应素材（如 <code>图片1</code>、<code>视频1</code>、<code>音频1</code>，不带方括号，中文写法，Seedance 仅识别此格式）。
 </div>
 
 <div class="callout warning">
@@ -1577,7 +1863,7 @@ while True:
 </section>
 
 <footer style="margin-top:60px;padding-top:20px;border-top:1px solid var(--border);font-size:13px;color:var(--text-secondary);text-align:center;">
-  Doubao Seedance Video Generation API &mdash; AI Gateway Plugin &mdash; 文档版本 2.1
+  Doubao Seedance Video Generation API &mdash; AI Gateway Plugin &mdash; 文档版本 2.5
 </footer>
 
 </main>

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -24,12 +25,19 @@ import (
 )
 
 type seedanceRequest struct {
-	Model         string                        `json:"model"`
-	Content       []relaycommon.TaskContentItem `json:"content"`
-	GenerateAudio *bool                         `json:"generate_audio,omitempty"`
-	Ratio         string                        `json:"ratio,omitempty"`
-	Duration      *int                          `json:"duration,omitempty"`
-	Watermark     *bool                         `json:"watermark,omitempty"`
+	Model                 string                        `json:"model"`
+	Content               []relaycommon.TaskContentItem `json:"content"`
+	Resolution            string                        `json:"resolution,omitempty"`
+	Ratio                 string                        `json:"ratio,omitempty"`
+	Duration              *int                          `json:"duration,omitempty"`
+	GenerateAudio         *bool                         `json:"generate_audio,omitempty"`
+	Watermark             *bool                         `json:"watermark,omitempty"`
+	Seed                  *int                          `json:"seed,omitempty"`
+	ReturnLastFrame       *bool                         `json:"return_last_frame,omitempty"`
+	ExecutionExpiresAfter *int                          `json:"execution_expires_after,omitempty"`
+	Tools                 []map[string]any              `json:"tools,omitempty"`
+	OutputFormat          string                        `json:"output_format,omitempty"`
+	SafetyIdentifier      string                        `json:"safety_identifier,omitempty"`
 }
 
 type seedanceSubmitResponse struct {
@@ -98,6 +106,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	if strings.TrimSpace(req.Model) == "" {
 		return service.TaskErrorWrapperLocal(fmt.Errorf("model field is required"), "missing_model", http.StatusBadRequest)
 	}
+	isSeedance25 := isSeedance25Model(req.Model) || isSeedance25Model(info.UpstreamModelName)
 
 	if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
 		req.Images = []string{strings.TrimSpace(req.Image)}
@@ -115,18 +124,22 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	}
 
 	if len(req.Content) == 0 {
-		if strings.TrimSpace(req.Prompt) == "" {
-			return service.TaskErrorWrapperLocal(fmt.Errorf("prompt is required"), "invalid_request", http.StatusBadRequest)
+		if strings.TrimSpace(req.Prompt) == "" && len(req.Images) == 0 {
+			return service.TaskErrorWrapperLocal(fmt.Errorf("prompt or images is required"), "invalid_request", http.StatusBadRequest)
 		}
-		if len(req.Images) > 9 {
-			return service.TaskErrorWrapperLocal(fmt.Errorf("images supports at most 9 items"), "invalid_content", http.StatusBadRequest)
+		maxImages := 9
+		if isSeedance25 {
+			maxImages = 30
+		}
+		if len(req.Images) > maxImages {
+			return service.TaskErrorWrapperLocal(fmt.Errorf("images supports at most %d items", maxImages), "invalid_content", http.StatusBadRequest)
 		}
 		for _, imageURL := range req.Images {
 			if strings.TrimSpace(imageURL) == "" {
 				return service.TaskErrorWrapperLocal(fmt.Errorf("image URL cannot be empty"), "invalid_content", http.StatusBadRequest)
 			}
 		}
-	} else if taskErr := validateSeedanceContent(req.Content); taskErr != nil {
+	} else if taskErr := validateSeedanceContent(req.Content, isSeedance25); taskErr != nil {
 		return taskErr
 	}
 
@@ -142,23 +155,58 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 			req.Duration = parsed
 		}
 	}
-	if ((req.DurationSet || secondsSet) && duration <= 0) || duration < 0 || duration > relaycommon.MaxTaskDurationSeconds {
+	maxDuration := 15
+	if isSeedance25 {
+		maxDuration = 30
+	}
+	if (req.DurationSet || secondsSet) && duration != -1 && (duration < 4 || duration > maxDuration) {
 		return service.TaskErrorWrapperLocal(
-			fmt.Errorf("duration must be between 1 and %d", relaycommon.MaxTaskDurationSeconds),
+			fmt.Errorf("duration must be -1 or between 4 and %d", maxDuration),
 			"invalid_duration",
 			http.StatusBadRequest,
 		)
 	}
-	if req.Ratio != "" && req.Ratio != "9:16" && req.Ratio != "16:9" && req.Ratio != "1:1" {
-		return service.TaskErrorWrapperLocal(fmt.Errorf("ratio must be one of 9:16, 16:9, or 1:1"), "invalid_ratio", http.StatusBadRequest)
+	validRatios := map[string]bool{
+		"16:9":     true,
+		"4:3":      true,
+		"1:1":      true,
+		"3:4":      true,
+		"9:16":     true,
+		"21:9":     true,
+		"adaptive": true,
+	}
+	if req.Ratio != "" && !validRatios[req.Ratio] {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("unsupported ratio %q", req.Ratio), "invalid_ratio", http.StatusBadRequest)
+	}
+	if req.Resolution != "" {
+		validResolutions := map[string]bool{"480p": true, "720p": true}
+		if !isSeedance25 && (req.Model == "doubao-seedance-2-0-260128" || info.UpstreamModelName == "doubao-seedance-2-0-260128") {
+			validResolutions["1080p"] = true
+			validResolutions["4k"] = true
+		}
+		if !validResolutions[req.Resolution] {
+			return service.TaskErrorWrapperLocal(fmt.Errorf("unsupported resolution %q for model %q", req.Resolution, req.Model), "invalid_resolution", http.StatusBadRequest)
+		}
+	}
+	if req.ExecutionExpiresAfter != nil && (*req.ExecutionExpiresAfter < 3600 || *req.ExecutionExpiresAfter > 259200) {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("execution_expires_after must be between 3600 and 259200"), "invalid_execution_expires_after", http.StatusBadRequest)
+	}
+	if req.OutputFormat != "" && req.OutputFormat != "mp4" && req.OutputFormat != "mov" {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("output_format must be mp4 or mov"), "invalid_output_format", http.StatusBadRequest)
+	}
+	if utf8.RuneCountInString(req.SafetyIdentifier) > 64 {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("safety_identifier must not exceed 64 characters"), "invalid_safety_identifier", http.StatusBadRequest)
 	}
 
 	relaycommon.StoreTaskRequest(c, info, constant.TaskActionGenerate, req)
 	return nil
 }
 
-func validateSeedanceContent(content []relaycommon.TaskContentItem) *dto.TaskError {
-	textCount := 0
+func isSeedance25Model(modelName string) bool {
+	return modelName == "doubao-seedance-2-5-260628" || modelName == "doubao-seedance-2-5-cloud"
+}
+
+func validateSeedanceContent(content []relaycommon.TaskContentItem, isSeedance25 bool) *dto.TaskError {
 	imageCount := 0
 	videoCount := 0
 	audioCount := 0
@@ -169,12 +217,11 @@ func validateSeedanceContent(content []relaycommon.TaskContentItem) *dto.TaskErr
 			if strings.TrimSpace(item.Text) == "" {
 				return invalidContentError(index, "text is required")
 			}
-			textCount++
 		case "image_url":
 			if item.ImageURL == nil || strings.TrimSpace(item.ImageURL.URL) == "" {
 				return invalidContentError(index, "image_url.url is required")
 			}
-			if item.Role != "reference_image" && item.Role != "first_frame" && item.Role != "last_frame" {
+			if item.Role != "" && item.Role != "reference_image" && item.Role != "first_frame" && item.Role != "last_frame" {
 				return invalidContentError(index, "invalid image role")
 			}
 			imageCount++
@@ -182,7 +229,7 @@ func validateSeedanceContent(content []relaycommon.TaskContentItem) *dto.TaskErr
 			if item.VideoURL == nil || strings.TrimSpace(item.VideoURL.URL) == "" {
 				return invalidContentError(index, "video_url.url is required")
 			}
-			if item.Role != "reference_video" {
+			if item.Role != "" && item.Role != "reference_video" {
 				return invalidContentError(index, "role must be reference_video")
 			}
 			videoCount++
@@ -190,7 +237,7 @@ func validateSeedanceContent(content []relaycommon.TaskContentItem) *dto.TaskErr
 			if item.AudioURL == nil || strings.TrimSpace(item.AudioURL.URL) == "" {
 				return invalidContentError(index, "audio_url.url is required")
 			}
-			if item.Role != "reference_audio" {
+			if item.Role != "" && item.Role != "reference_audio" {
 				return invalidContentError(index, "role must be reference_audio")
 			}
 			audioCount++
@@ -199,17 +246,24 @@ func validateSeedanceContent(content []relaycommon.TaskContentItem) *dto.TaskErr
 		}
 	}
 
-	if textCount == 0 {
-		return service.TaskErrorWrapperLocal(fmt.Errorf("content must include a non-empty text item"), "invalid_content", http.StatusBadRequest)
+	maxImages := 9
+	maxVideos := 3
+	maxAudios := 3
+	if isSeedance25 {
+		maxImages = 30
+		maxVideos = 10
+		maxAudios = 10
+	} else if audioCount > 0 && imageCount == 0 && videoCount == 0 {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("Seedance 2.0 audio input requires image or video content"), "invalid_content", http.StatusBadRequest)
 	}
-	if imageCount > 9 {
-		return service.TaskErrorWrapperLocal(fmt.Errorf("content supports at most 9 images"), "invalid_content", http.StatusBadRequest)
+	if imageCount > maxImages {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("content supports at most %d images", maxImages), "invalid_content", http.StatusBadRequest)
 	}
-	if videoCount > 1 {
-		return service.TaskErrorWrapperLocal(fmt.Errorf("content supports at most 1 video"), "invalid_content", http.StatusBadRequest)
+	if videoCount > maxVideos {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("content supports at most %d videos", maxVideos), "invalid_content", http.StatusBadRequest)
 	}
-	if audioCount > 1 {
-		return service.TaskErrorWrapperLocal(fmt.Errorf("content supports at most 1 audio"), "invalid_content", http.StatusBadRequest)
+	if audioCount > maxAudios {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("content supports at most %d audios", maxAudios), "invalid_content", http.StatusBadRequest)
 	}
 	return nil
 }
@@ -261,20 +315,29 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 				Role:     "reference_image",
 			})
 		}
-		content = append(content, relaycommon.TaskContentItem{
-			Type: "text",
-			Text: req.Prompt,
-		})
+		if strings.TrimSpace(req.Prompt) != "" {
+			content = append(content, relaycommon.TaskContentItem{
+				Type: "text",
+				Text: req.Prompt,
+			})
+		}
 	}
 
 	body := seedanceRequest{
-		Model:         info.UpstreamModelName,
-		Content:       content,
-		GenerateAudio: req.GenerateAudio,
-		Ratio:         req.Ratio,
-		Watermark:     req.Watermark,
+		Model:                 info.UpstreamModelName,
+		Content:               content,
+		Resolution:            req.Resolution,
+		Ratio:                 req.Ratio,
+		GenerateAudio:         req.GenerateAudio,
+		Watermark:             req.Watermark,
+		Seed:                  req.Seed,
+		ReturnLastFrame:       req.ReturnLastFrame,
+		ExecutionExpiresAfter: req.ExecutionExpiresAfter,
+		Tools:                 req.Tools,
+		OutputFormat:          req.OutputFormat,
+		SafetyIdentifier:      req.SafetyIdentifier,
 	}
-	if req.Duration > 0 {
+	if req.DurationSet || req.Seconds != "" {
 		body.Duration = &req.Duration
 	}
 
@@ -538,12 +601,15 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		} else {
 			result.TotalTokens = result.CompletionTokens
 		}
-	case "failed":
+	case "failed", "expired":
 		result.Status = string(model.TaskStatusFailure)
 		result.Progress = taskcommon.ProgressComplete
 		result.Reason = upstream.Error.Message
 		if result.Reason == "" {
 			result.Reason = upstream.Message
+		}
+		if result.Reason == "" && upstream.Status == "expired" {
+			result.Reason = "upstream video generation task expired"
 		}
 		if result.Reason == "" {
 			result.Reason = "upstream video generation failed"

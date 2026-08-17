@@ -688,21 +688,28 @@ type TaskRelayInfo struct {
 }
 
 type TaskSubmitReq struct {
-	Prompt         string                 `json:"prompt"`
-	Model          string                 `json:"model,omitempty"`
-	Mode           string                 `json:"mode,omitempty"`
-	Image          string                 `json:"image,omitempty"`
-	Images         []string               `json:"images,omitempty"`
-	Content        []TaskContentItem      `json:"content,omitempty"`
-	GenerateAudio  *bool                  `json:"generate_audio,omitempty"`
-	Ratio          string                 `json:"ratio,omitempty"`
-	Watermark      *bool                  `json:"watermark,omitempty"`
-	Size           string                 `json:"size,omitempty"`
-	Duration       int                    `json:"duration,omitempty"`
-	DurationSet    bool                   `json:"-"`
-	Seconds        string                 `json:"seconds,omitempty"`
-	InputReference string                 `json:"input_reference,omitempty"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	Prompt                string                 `json:"prompt"`
+	Model                 string                 `json:"model,omitempty"`
+	Mode                  string                 `json:"mode,omitempty"`
+	Image                 string                 `json:"image,omitempty"`
+	Images                []string               `json:"images,omitempty"`
+	Content               []TaskContentItem      `json:"content,omitempty"`
+	GenerateAudio         *bool                  `json:"generate_audio,omitempty"`
+	Resolution            string                 `json:"resolution,omitempty"`
+	Ratio                 string                 `json:"ratio,omitempty"`
+	Watermark             *bool                  `json:"watermark,omitempty"`
+	Seed                  *int                   `json:"seed,omitempty"`
+	ReturnLastFrame       *bool                  `json:"return_last_frame,omitempty"`
+	ExecutionExpiresAfter *int                   `json:"execution_expires_after,omitempty"`
+	Tools                 []map[string]any       `json:"tools,omitempty"`
+	OutputFormat          string                 `json:"output_format,omitempty"`
+	SafetyIdentifier      string                 `json:"safety_identifier,omitempty"`
+	Size                  string                 `json:"size,omitempty"`
+	Duration              int                    `json:"duration,omitempty"`
+	DurationSet           bool                   `json:"-"`
+	Seconds               string                 `json:"seconds,omitempty"`
+	InputReference        string                 `json:"input_reference,omitempty"`
+	Metadata              map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type TaskContentItem struct {

@@ -36,23 +36,30 @@ func newTaskContext(t *testing.T, body string) (*gin.Context, *relaycommon.Relay
 
 func TestSeedanceStructuredRequestPreservesAllFields(t *testing.T) {
 	context, info := newTaskContext(t, `{
-		"model":"doubao-seedance-2-0-260128",
+		"model":"doubao-seedance-2-5-260628",
 		"content":[
 			{"type":"text","text":"create a video"},
 			{"type":"image_url","image_url":{"url":"asset://image"},"role":"first_frame"},
 			{"type":"video_url","video_url":{"url":"https://example.com/reference.mp4"},"role":"reference_video"},
 			{"type":"audio_url","audio_url":{"url":"data:audio/mp3;base64,AAAA"},"role":"reference_audio"}
 		],
+		"resolution":"720p",
 		"generate_audio":false,
-		"ratio":"9:16",
-		"duration":5,
-		"watermark":false
+		"ratio":"adaptive",
+		"duration":-1,
+		"watermark":false,
+		"seed":0,
+		"return_last_frame":false,
+		"execution_expires_after":3600,
+		"tools":[{"type":"web_search"}],
+		"output_format":"mov",
+		"safety_identifier":"user-123"
 	}`)
 	adaptor := &TaskAdaptor{}
 	adaptor.Init(info)
 
 	require.Nil(t, adaptor.ValidateRequestAndSetAction(context, info))
-	info.UpstreamModelName = "doubao-seedance-2-0-260128"
+	info.UpstreamModelName = "doubao-seedance-2-5-260628"
 	requestURL, err := adaptor.BuildRequestURL(info)
 	require.NoError(t, err)
 	assert.Equal(t, "https://provider.example/v1/videos/generations", requestURL)
@@ -75,8 +82,19 @@ func TestSeedanceStructuredRequestPreservesAllFields(t *testing.T) {
 	require.NotNil(t, request.Watermark)
 	assert.False(t, *request.Watermark)
 	require.NotNil(t, request.Duration)
-	assert.Equal(t, 5, *request.Duration)
-	assert.Equal(t, "9:16", request.Ratio)
+	assert.Equal(t, -1, *request.Duration)
+	assert.Equal(t, "720p", request.Resolution)
+	assert.Equal(t, "adaptive", request.Ratio)
+	require.NotNil(t, request.Seed)
+	assert.Zero(t, *request.Seed)
+	require.NotNil(t, request.ReturnLastFrame)
+	assert.False(t, *request.ReturnLastFrame)
+	require.NotNil(t, request.ExecutionExpiresAfter)
+	assert.Equal(t, 3600, *request.ExecutionExpiresAfter)
+	require.Len(t, request.Tools, 1)
+	assert.Equal(t, "web_search", request.Tools[0]["type"])
+	assert.Equal(t, "mov", request.OutputFormat)
+	assert.Equal(t, "user-123", request.SafetyIdentifier)
 }
 
 func TestSeedanceLegacyRequestConvertsImagesToReferences(t *testing.T) {
@@ -117,8 +135,8 @@ func TestSeedanceRequestValidation(t *testing.T) {
 			code: "conflicting_video_input",
 		},
 		{
-			name: "missing text",
-			body: `{"model":"doubao-seedance-2-0-260128","content":[{"type":"image_url","image_url":{"url":"asset://image"},"role":"reference_image"}]}`,
+			name: "2.0 audio without image or video",
+			body: `{"model":"doubao-seedance-2-0-260128","content":[{"type":"text","text":"video"},{"type":"audio_url","audio_url":{"url":"asset://audio"}}]}`,
 			code: "invalid_content",
 		},
 		{
@@ -128,7 +146,7 @@ func TestSeedanceRequestValidation(t *testing.T) {
 		},
 		{
 			name: "invalid ratio",
-			body: `{"model":"doubao-seedance-2-0-260128","content":[{"type":"text","text":"video"}],"ratio":"4:3"}`,
+			body: `{"model":"doubao-seedance-2-0-260128","content":[{"type":"text","text":"video"}],"ratio":"2:1"}`,
 			code: "invalid_ratio",
 		},
 		{
@@ -137,9 +155,34 @@ func TestSeedanceRequestValidation(t *testing.T) {
 			code: "invalid_duration",
 		},
 		{
-			name: "oversized duration",
-			body: `{"model":"doubao-seedance-2-0-260128","content":[{"type":"text","text":"video"}],"duration":3601}`,
+			name: "2.0 oversized duration",
+			body: `{"model":"doubao-seedance-2-0-260128","content":[{"type":"text","text":"video"}],"duration":16}`,
 			code: "invalid_duration",
+		},
+		{
+			name: "2.5 oversized duration",
+			body: `{"model":"doubao-seedance-2-5-260628","content":[{"type":"text","text":"video"}],"duration":31}`,
+			code: "invalid_duration",
+		},
+		{
+			name: "2.5 unsupported resolution",
+			body: `{"model":"doubao-seedance-2-5-260628","content":[{"type":"text","text":"video"}],"resolution":"1080p"}`,
+			code: "invalid_resolution",
+		},
+		{
+			name: "invalid expiration",
+			body: `{"model":"doubao-seedance-2-5-260628","content":[{"type":"text","text":"video"}],"execution_expires_after":3599}`,
+			code: "invalid_execution_expires_after",
+		},
+		{
+			name: "invalid output format",
+			body: `{"model":"doubao-seedance-2-5-260628","content":[{"type":"text","text":"video"}],"output_format":"avi"}`,
+			code: "invalid_output_format",
+		},
+		{
+			name: "oversized safety identifier",
+			body: `{"model":"doubao-seedance-2-5-260628","content":[{"type":"text","text":"video"}],"safety_identifier":"12345678901234567890123456789012345678901234567890123456789012345"}`,
+			code: "invalid_safety_identifier",
 		},
 	}
 
@@ -151,6 +194,31 @@ func TestSeedanceRequestValidation(t *testing.T) {
 			taskErr := adaptor.ValidateRequestAndSetAction(context, info)
 			require.NotNil(t, taskErr)
 			assert.Equal(t, test.code, taskErr.Code)
+		})
+	}
+}
+
+func TestSeedanceModelSpecificInputsAreAccepted(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "2.0 image only with omitted role",
+			body: `{"model":"doubao-seedance-2-0-260128","content":[{"type":"image_url","image_url":{"url":"asset://image"}}],"resolution":"4k","ratio":"4:3","duration":-1}`,
+		},
+		{
+			name: "2.5 audio only",
+			body: `{"model":"doubao-seedance-2-5-260628","content":[{"type":"audio_url","audio_url":{"url":"asset://audio"}}],"duration":30}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			context, info := newTaskContext(t, test.body)
+			adaptor := &TaskAdaptor{}
+			adaptor.Init(info)
+			require.Nil(t, adaptor.ValidateRequestAndSetAction(context, info))
 		})
 	}
 }
@@ -169,18 +237,22 @@ func TestSeedanceProtocolRejectsUnregisteredModel(t *testing.T) {
 	assert.Contains(t, err.Error(), "no registered protocol")
 }
 
-func TestSeedanceCloudModelUsesGenerationsV1(t *testing.T) {
+func TestSeedance25ModelsUseGenerationsV1(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	adaptor.Init(&relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
 		ChannelBaseUrl: "https://provider.example",
 	}})
 
-	requestURL, err := adaptor.BuildRequestURL(&relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
-		UpstreamModelName: "doubao-seedance-2-5-cloud",
-	}})
+	for _, modelName := range []string{"doubao-seedance-2-5-260628", "doubao-seedance-2-5-cloud"} {
+		t.Run(modelName, func(t *testing.T) {
+			requestURL, err := adaptor.BuildRequestURL(&relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
+				UpstreamModelName: modelName,
+			}})
 
-	require.NoError(t, err)
-	assert.Equal(t, "https://provider.example/v1/videos/generations", requestURL)
+			require.NoError(t, err)
+			assert.Equal(t, "https://provider.example/v1/videos/generations", requestURL)
+		})
+	}
 }
 
 func TestSeedanceTaskResultMapsUsageForTokenSettlement(t *testing.T) {
@@ -212,6 +284,20 @@ func TestSeedanceTaskResultMapsUsageForTokenSettlement(t *testing.T) {
 			assert.Equal(t, 108900, result.TotalTokens)
 		})
 	}
+}
+
+func TestSeedanceExpiredTaskMapsToFailure(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	result, err := adaptor.ParseTaskResult([]byte(`{
+		"task_id":"upstream-task",
+		"model":"doubao-seedance-2-5-260628",
+		"status":"expired"
+	}`))
+
+	require.NoError(t, err)
+	assert.Equal(t, "FAILURE", result.Status)
+	assert.Equal(t, "100%", result.Progress)
+	assert.Equal(t, "upstream video generation task expired", result.Reason)
 }
 
 func TestSeedanceSubmitResponseKeepsUpstreamTaskIDPrivate(t *testing.T) {
@@ -253,7 +339,7 @@ func TestSeedanceFetchTaskUsesRegisteredQueryEndpoint(t *testing.T) {
 		assert.Equal(t, "/v1/videos/generations/task/upstream-task", request.URL.Path)
 		assert.Equal(t, "Bearer secret-key", request.Header.Get("Authorization"))
 		writer.Header().Set("Content-Type", "application/json")
-		_, err := writer.Write([]byte(`{"task_id":"upstream-task","model":"doubao-seedance-2-5-cloud","status":"running"}`))
+		_, err := writer.Write([]byte(`{"task_id":"upstream-task","model":"doubao-seedance-2-5-260628","status":"running"}`))
 		require.NoError(t, err)
 	}))
 	defer server.Close()
@@ -261,7 +347,7 @@ func TestSeedanceFetchTaskUsesRegisteredQueryEndpoint(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	response, err := adaptor.FetchTask(server.URL, "secret-key", map[string]any{
 		"task_id": "upstream-task",
-		"model":   "doubao-seedance-2-5-cloud",
+		"model":   "doubao-seedance-2-5-260628",
 	}, "")
 
 	require.NoError(t, err)
