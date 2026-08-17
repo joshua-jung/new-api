@@ -169,6 +169,20 @@ func TestSeedanceProtocolRejectsUnregisteredModel(t *testing.T) {
 	assert.Contains(t, err.Error(), "no registered protocol")
 }
 
+func TestSeedanceCloudModelUsesGenerationsV1(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(&relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
+		ChannelBaseUrl: "https://provider.example",
+	}})
+
+	requestURL, err := adaptor.BuildRequestURL(&relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
+		UpstreamModelName: "doubao-seedance-2-5-cloud",
+	}})
+
+	require.NoError(t, err)
+	assert.Equal(t, "https://provider.example/v1/videos/generations", requestURL)
+}
+
 func TestSeedanceTaskResultMapsUsageForTokenSettlement(t *testing.T) {
 	tests := []struct {
 		name string
@@ -239,7 +253,7 @@ func TestSeedanceFetchTaskUsesRegisteredQueryEndpoint(t *testing.T) {
 		assert.Equal(t, "/v1/videos/generations/task/upstream-task", request.URL.Path)
 		assert.Equal(t, "Bearer secret-key", request.Header.Get("Authorization"))
 		writer.Header().Set("Content-Type", "application/json")
-		_, err := writer.Write([]byte(`{"task_id":"upstream-task","model":"doubao-seedance-2-0-260128","status":"running"}`))
+		_, err := writer.Write([]byte(`{"task_id":"upstream-task","model":"doubao-seedance-2-5-cloud","status":"running"}`))
 		require.NoError(t, err)
 	}))
 	defer server.Close()
@@ -247,7 +261,7 @@ func TestSeedanceFetchTaskUsesRegisteredQueryEndpoint(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	response, err := adaptor.FetchTask(server.URL, "secret-key", map[string]any{
 		"task_id": "upstream-task",
-		"model":   "doubao-seedance-2-0-260128",
+		"model":   "doubao-seedance-2-5-cloud",
 	}, "")
 
 	require.NoError(t, err)
